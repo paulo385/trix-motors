@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181c">
+<meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
+<link rel="manifest" href="manifest.json?v=4">
+<link rel="icon" href="icons/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trix Motors">
+<title>Trix Motors – Venda e Impostos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Tela de abertura: estilo embutido aqui para funcionar mesmo se o style.css demorar ou estiver desatualizado */
+.splash{position:fixed;inset:0;z-index:100;background:#16181c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;
+  animation:splashSai .45s ease 1.6s forwards}
+.splash img{width:min(56vw,260px);max-width:260px;height:auto;animation:logoEntra .8s cubic-bezier(.2,.7,.2,1) both}
+.splash-barra{width:120px;height:3px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.splash-barra::after{content:"";display:block;height:100%;width:100%;background:#fe8209;transform-origin:left;animation:barra 1.5s ease-in-out both}
+@keyframes logoEntra{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes barra{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes splashSai{to{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion: reduce){
+  .splash{animation:splashSai .2s linear .7s forwards}
+  .splash img,.splash-barra::after{animation:none}
+}
+</style>
+<link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
+<script>setTimeout(function(){var s=document.getElementById("splash");if(s)s.remove();},2300);</script>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <img src="icons/logo-mark.png" alt="" width="54" height="34">
+      <div class="brand-txt">
+        <h1><span class="w1">TRIX</span> <span class="w2">MOTORS</span></h1>
+        <small>Venda e impostos · IRPJ, CSLL, PIS, COFINS e ICMS</small>
+      </div>
+    </div>
+    <div class="empresa">Empresa <div class="seg" id="segEmpresa" role="group" aria-label="Empresa"></div></div>
+    <div class="status" id="status"><span class="dot"></span><span>Conectando…</span></div>
+    <button type="button" class="btn sm install" id="bInstalar" hidden>
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Instalar app</button>
+  </div>
+  <nav class="tabs" aria-label="Seções">
+    <a href="#nova" data-v="nova"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nova venda</span></a>
+    <a href="#vendas" data-v="vendas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg><span>Vendas<span class="lg"> e fechamento</span></span></a>
+    <a href="#aliquotas" data-v="aliquotas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5L5 19M7.5 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm9 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><span>Alíquotas</span></a>
+  </nav>
+</header>
+
+<main>
+<!-- ============ NOVA VENDA ============ -->
+<section class="view" id="v-nova">
+  <form id="form" class="grid-venda" novalidate>
+    <div>
+      <div class="card">
+        <h2><span class="step">1</span>Cliente</h2>
+        <div class="fields">
+          <div class="f s4"><label for="cNome">Nome completo <span class="req">*</span></label><input id="cNome" autocomplete="off" placeholder="Nome do comprador"></div>
+          <div class="f s2"><label for="cCpf">CPF / CNPJ</label><input id="cCpf" inputmode="numeric" placeholder="000.000.000-00"><span class="hint" id="hCpf"></span></div>
+          <div class="f s4"><label for="cEnd">Endereço</label><input id="cEnd" placeholder="Rua, número, bairro"></div>
+          <div class="f s2"><label for="cTel">Telefone</label><input id="cTel" inputmode="tel" placeholder="(00) 00000-0000"></div>
+          <div class="f s4"><label for="cCidade">Cidade</label><input id="cCidade"></div>
+          <div class="f s2"><label for="cUf">UF</label><input id="cUf" maxlength="2" placeholder="SP" style="text-transform:uppercase"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="step">2</span>Veículo</h2>
+        <div class="fields">
+          <div class="f s4"><label for="vModelo">Modelo <span class="req">*</span></label><input id="vModelo" placeholder="Ex.: Onix 1.0 LT"></div>
+          <div class="f s2"><label for="vAno">Ano/Modelo</label><input id="vAno" placeholder="2025/2025"></div>
+          <div class="f s2"><label for="vPlaca">Placa <span class="req">*</span></label><input id="vPlaca" class="placa-in" maxlength="8" placeholder="ABC1D23"><span class="hint" id="hPlaca"></span></div>
+          <div class="f s2"><label for="vRenavam">Renavam</label><input id="vRenavam" inputmode="numeric" maxlength="11" placeholder="11 dígitos"><span class="hint" id="hRenavam"></span></div>
+          <div class="f s2"><label for="vChassi">Chassi</label><input id="vChassi" maxlength="17" style="text-transform:uppercase"></div>
+          <div class="f s2"><label for="vOrigem">Origem da compra</label>
+            <select id="vOrigem"><option>Concessionária</option><option>Particular</option><option>Troca</option><option>Leilão</option><option>Outra</option></select></div>
+          <div class="f s2"><label for="vDataCompra">Data da compra</label><input id="vDataCompra" type="date"></div>
+          <div class="f s2"><label for="vNfEnt">NF de entrada</label><input id="vNfEnt" placeholder="Nº ou CONC."></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="step">3</span>Valores da venda</h2>
+        <div class="fields">
+          <div class="f s2"><label for="xCompra">Valor de compra <span class="req">*</span></label><div class="money"><input id="xCompra" class="num" inputmode="decimal" placeholder="0,00"></div></div>
+          <div class="f s2"><label for="xCustos">Custos de preparação</label><div class="money"><input id="xCustos" class="num" inputmode="decimal" placeholder="0,00"></div><span class="hint">Funilaria, pneus, documentação…</span></div>
+          <div class="f s2"><label for="xVenda">Valor de venda <span class="req">*</span></label><div class="money"><input id="xVenda" class="num" inputmode="decimal" placeholder="0,00"></div></div>
+          <div class="f s2"><label for="xData">Data da venda</label><input id="xData" type="date"></div>
+          <div class="f s2"><label for="xNf">NF de saída</label><input id="xNf"></div>
+          <div class="f s2"><label for="xVendedor">Vendedor</label><input id="xVendedor"></div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn primary" id="bCalc">CALCULAR</button>
+          <button type="button" class="btn good" id="bSalvar" disabled>Salvar venda</button>
+          <button type="button" class="btn" id="bLimpar">Limpar</button>
+          <button type="button" class="btn link" id="bExemplo">Preencher exemplo</button>
+        </div>
+        <p class="hint err" id="formErr"></p>
+      </div>
+    </div>
+
+    <aside class="result" id="resultBox" aria-live="polite">
+      <div class="card" id="resultCard"></div>
+    </aside>
+  </form>
+</section>
+
+<!-- ============ VENDAS ============ -->
+<section class="view" id="v-vendas">
+  <div class="toolbar">
+    <div class="f"><label for="selTri">Trimestre</label><select id="selTri"></select></div>
+    <div class="f" style="flex:1"><label for="busca">Buscar placa, modelo ou cliente</label><input id="busca" placeholder="Digite para filtrar"></div>
+    <button class="btn primary" id="bPdfTri" type="button">RELATÓRIO PDF</button>
+    <button class="btn" id="bCsv" type="button">Exportar CSV</button>
+  </div>
+  <div class="tiles" id="tiles"></div>
+  <div class="tablewrap"><table class="list" id="tbVendas"></table></div>
+  <div class="fech">
+    <div class="card"><h2>Fechamento do trimestre</h2><div id="fechTab"></div></div>
+    <div class="card conf"><h2>Conferência com o DARF pago</h2><div id="confBox"></div></div>
+  </div>
+</section>
+
+<!-- ============ ALÍQUOTAS ============ -->
+<section class="view" id="v-aliquotas">
+  <div class="card cfg">
+    <h2>Alíquotas usadas no cálculo</h2>
+    <p class="note" style="margin-top:0">Lucro presumido sobre a margem (venda − compra), como na planilha. Cada venda guarda as alíquotas do dia em que foi salva. Mudar aqui vale só para novos cálculos.</p>
+    <div class="fields" id="cfgFields"></div>
+    <div class="actions"><button class="btn primary" id="bCfg" type="button">SALVAR ALÍQUOTAS</button><button class="btn" id="bCfgPadrao" type="button">Voltar ao padrão da planilha</button></div>
+  </div>
+</section>
+</main>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="card"><h2 id="mTitle">Excluir venda?</h2><p id="mText"></p>
+    <div class="actions"><button class="btn danger" id="mOk" type="button">Excluir</button><button class="btn" id="mCancel" type="button">Cancelar</button></div></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div class="ios-tip" id="iosTip" hidden>
+  <p><b>Instalar no iPhone:</b> toque em <svg viewBox="0 0 24 24" width="18" height="18" aria-label="Compartilhar"><path d="M12 15V3m0 0L8 7m4-4l4 4M6 11H5a1 1 0 00-1 1v8a1 1 0 001 1h14a1 1 0 001-1v-8a1 1 0 00-1-1h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Compartilhar e depois em <b>Adicionar à Tela de Início</b>.</p>
+  <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
+</div>
+
+<script src="lib/jspdf.umd.min.js?v=4"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=4"></script>
+<script src="pdf.js?v=4"></script>
+<script src="script.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "Trix Motors · Venda e Impostos",
+  "short_name": "Trix Motors",
+  "description": "Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS, fechamento do trimestre e relatórios em PDF.",
+  "lang": "pt-BR",
+  "id": "./",
+  "start_url": "./index.html#nova",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#16181c",
+  "theme_color": "#16181c",
+  "categories": ["business", "finance"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Nova venda", "url": "./index.html#nova", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Vendas e fechamento", "url": "./index.html#vendas", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
