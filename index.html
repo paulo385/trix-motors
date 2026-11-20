@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=12">
+<link rel="manifest" href="manifest.json?v=13">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -15,9 +15,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Trix Motors">
 <title>Trix Motors – Venda e Impostos</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/barlow-semi-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/source-sans-3-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 /* Tela de abertura: estilo embutido aqui para funcionar mesmo se o style.css demorar ou estiver desatualizado */
 .splash{position:fixed;inset:0;z-index:100;background:#16181c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;
@@ -33,7 +32,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -73,6 +72,7 @@
     <div>
       <div class="card">
         <h2><span class="step">1</span>Cliente</h2>
+        <p class="aviso-lgpd">Avise o cliente: os dados são usados para a venda, a nota fiscal e a transferência do veículo. <a href="privacidade.html" target="_blank" rel="noopener">Como cuidamos dos dados</a></p>
         <div class="fields">
           <div class="f s4"><label for="cNome">Nome completo <span class="req">*</span></label><input id="cNome" autocomplete="off" placeholder="Nome do comprador"></div>
           <div class="f s2"><label for="cCpf">CPF / CNPJ</label><input id="cCpf" inputmode="numeric" placeholder="000.000.000-00"><span class="hint" id="hCpf"></span></div>
@@ -168,11 +168,23 @@
     <h2>Quem tem acesso</h2>
     <div id="listaMembros"></div>
   </div>
+  <div class="card" id="cardTitular">
+    <h2>Pedidos de clientes sobre dados (LGPD)</h2>
+    <p class="note" style="margin-top:0">Quando um cliente pedir pelo canal de privacidade: busque pelo CPF ou CNPJ. Prazo de resposta: até 15 dias (simplificada) ou 30 dias (completa).</p>
+    <div class="toolbar"><div class="f" style="flex:1"><label for="tCpf">CPF ou CNPJ do cliente</label><input id="tCpf" inputmode="numeric" placeholder="000.000.000-00"></div><button type="button" class="btn primary" id="bTBuscar">BUSCAR</button></div>
+    <div id="tResultado"></div>
+  </div>
+  <div class="card" id="cardAuditoria">
+    <h2>Registro de auditoria</h2>
+    <p class="note" style="margin-top:0">Quem criou, alterou ou apagou vendas, aprovou ou removeu acessos e mudou alíquotas. Não pode ser alterado. Guardado por 5 anos.</p>
+    <div id="listaAuditoria"><p class="vazio">Carregando…</p></div>
+  </div>
   <div class="card" id="cardRecusados" hidden>
     <h2>Recusados</h2>
     <div id="listaRecusados"></div>
   </div>
 </section>
+<footer class="rodape-app"><a href="privacidade.html" target="_blank" rel="noopener">Privacidade e proteção de dados</a><span id="rodapeCanal"></span></footer>
 </main>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
@@ -193,9 +205,11 @@
     <button type="submit" class="btn primary" id="bEntrar">ENTRAR</button>
     <button type="button" class="btn" id="bVerificar" hidden>Verificar de novo</button>
     <button type="button" class="btn link" id="bEsqueci">Esqueci minha senha</button>
+    <p class="login-cad-aviso" id="avisoCadastro" hidden>Seu nome e e-mail são usados só para liberar e controlar o seu acesso ao app.</p>
     <p class="login-troca" id="trocaCriar">Não tem conta? <button type="button" class="btn link" id="bIrCriar">Criar conta</button></p>
     <p class="login-troca" id="trocaEntrar" hidden>Já tem conta? <button type="button" class="btn link" id="bIrEntrar">Entrar</button></p>
     <button type="button" class="btn link" id="bLoginSair" hidden>Sair e usar outra conta</button>
+    <p class="login-priv"><a href="privacidade.html" target="_blank" rel="noopener">Privacidade e proteção de dados</a></p>
   </form>
 </div>
 <div class="ios-tip" id="iosTip" hidden>
@@ -203,11 +217,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=12"></script>
-<script src="lib/supabase.js?v=12"></script>
-<script src="lib/jspdf.umd.min.js?v=12"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=12"></script>
-<script src="pdf.js?v=12"></script>
-<script src="script.js?v=12"></script>
+<script src="config.js?v=13"></script>
+<script src="lib/supabase.js?v=13"></script>
+<script src="lib/jspdf.umd.min.js?v=13"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=13"></script>
+<script src="pdf.js?v=13"></script>
+<script src="script.js?v=13"></script>
 </body>
 </html>

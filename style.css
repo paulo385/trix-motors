@@ -1,3 +1,11 @@
+/* Fontes hospedadas no próprio site (sem chamada ao Google): licença SIL OFL 1.1, ver fonts/ */
+@font-face{font-family:"Barlow Semi Condensed";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/barlow-semi-condensed-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Barlow Semi Condensed";font-style:normal;font-weight:600;font-display:swap;src:url("fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Barlow Semi Condensed";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/barlow-semi-condensed-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Source Sans 3";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/source-sans-3-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Source Sans 3";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/source-sans-3-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Source Sans 3";font-style:normal;font-weight:600;font-display:swap;src:url("fonts/source-sans-3-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Source Sans 3";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/source-sans-3-latin-700-normal.woff2") format("woff2")}
 /* Cores da marca Trix Motors: laranja #fe8209, grafite, cinza claro do logotipo. Layout: barra superior com empresa e abas; "Nova venda" = formulário à esquerda + resultado fixo à direita (empilha no celular). */
 :root{
   --bg:#f5f4f2; --surface:#ffffff; --ink:#1c1d21; --muted:#67635d; --line:#e4e0db;
@@ -279,3 +287,17 @@ header.top{padding-top:env(safe-area-inset-top)}
   .pessoa .acoes{width:100%}
   .pessoa .acoes .btn{flex:1}
 }
+
+/* ===================== Privacidade (LGPD) ===================== */
+.aviso-lgpd{margin:-4px 0 12px;font-size:.85rem;color:var(--muted);background:var(--accent-soft);border-radius:8px;padding:8px 10px}
+.aviso-lgpd a,.login-priv a,.rodape-app a{color:var(--accent-text);font-weight:600}
+.login-priv{margin:4px 0 0;text-align:center;font-size:.82rem}
+.login-cad-aviso{margin:0;text-align:center;font-size:.82rem;color:var(--muted)}
+.login-cad-aviso[hidden]{display:none!important}
+.rodape-app{margin-top:28px;text-align:center;font-size:.85rem;color:var(--muted)}
+.aud{display:grid;grid-template-columns:150px 1fr;gap:2px 12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.aud:last-child{border-bottom:0}
+.aud .q{color:var(--muted);font-variant-numeric:tabular-nums}
+.aud small{color:var(--muted);word-break:break-all}
+@media (max-width:520px){.aud{grid-template-columns:1fr}}
+.tit-venda{padding:8px 0;border-bottom:1px solid var(--line);font-size:.92rem}

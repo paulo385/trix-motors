@@ -12,6 +12,9 @@ Site em HTML, CSS e JavaScript puro, sem framework, para cadastrar vendas de ve�
 | `config.js` | Endereço e chave pública do banco de dados (Supabase). Em branco = vendas só no aparelho |
 | `supabase/setup.sql` | Script que cria as tabelas e as regras de acesso no Supabase |
 | `supabase/002-cadastro-com-aprovacao.sql` | Script do cadastro de vendedores com aprovação do administrador |
+| `supabase/003-privacidade-retencao-auditoria.sql` | Script de privacidade: exclusão automática, anonimização após o prazo fiscal, registro de auditoria e pedidos de clientes |
+| `privacidade.html` | Página pública de privacidade (LGPD) |
+| `fonts/` | Fontes do app hospedadas no próprio site (licença SIL OFL) |
 | `.github/workflows/manter-banco-ativo.yml` | Rotina do GitHub que evita a pausa do banco grátis |
 | `pdf.js` | Monta os PDFs: relatório do mês e resumo de cada venda |
 | `manifest.json` | Nome, ícone e cores do app quando instalado no celular |
@@ -87,6 +90,14 @@ O Supabase grátis pausa o banco depois de 7 dias sem uso. A rotina `manter-banc
 - **Com o banco configurado:** no Supabase. Cada pessoa entra com sua conta; ao sair, as vendas somem da tela daquele aparelho.
 - **Sem banco (config.js em branco):** só no navegador de quem está usando.
 - **Vendas antigas do aparelho:** depois de configurar o banco, o app oferece **Enviar para o banco** as vendas que estavam salvas só no aparelho.
+
+## Privacidade (LGPD)
+
+1. Rode `supabase/003-privacidade-retencao-auditoria.sql` no SQL Editor (depois do setup e do 002). Se aparecer aviso sobre pg_cron, ative em **Database → Extensions → pg_cron** e rode de novo.
+2. Preencha `canalPrivacidade` no `config.js` com o e-mail que vai receber pedidos sobre dados pessoais.
+3. Em **Authentication → Sign In / Providers → Email**, ajuste a senha mínima para **8** caracteres.
+
+O que fica automático: vendas com mais de 5 anos de guarda fiscal perdem os dados do cliente (2 de janeiro); pedidos recusados somem em 30 dias; "Remover acesso" apaga a conta; tudo o que é criado, alterado ou apagado fica no **Registro de auditoria** (aba Usuários). Na mesma aba, **Pedidos de clientes sobre dados** busca pelo CPF para entregar cópia, apagar contato ou anonimizar.
 
 ## Cálculo usado
 

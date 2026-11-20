@@ -494,22 +494,20 @@ $("bPdfTri").addEventListener("click", async ()=>{
 });
 
 /* ---------- CSV ---------- */
+function mascararDoc(d){ const n = soDig(d); if(n.length===11) return "***."+n.slice(3,6)+"."+n.slice(6,9)+"-**"; return d||""; }   // CNPJ não é dado pessoal
 $("bCsv").addEventListener("click", async ()=>{
   const mes = mesEscolhido || mesDe(hoje());
   const rows = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda && mesDe(v.valores.dataVenda)===mes).sort((a,b)=>a.valores.dataVenda.localeCompare(b.valores.dataVenda));
   const n = x => Number(x).toFixed(2).replace(".",",");
-  const head = ["Empresa","Data venda","NF saída","Modelo","Placa","Renavam","Chassi","Data compra","NF entrada","Origem","Cliente","CPF/CNPJ","Endereço","Cidade","UF","Telefone","Compra","Custos","Venda","Lucro","BC IRPJ","IRPJ","BC CSLL","CSLL","PIS","COFINS","BC ICMS","ICMS","Total impostos","Líquido"];
+  // Exportação mínima (LGPD): CPF mascarado, sem endereço, telefone, Renavam e chassi
+  const head = ["Empresa","Data venda","NF saída","Modelo","Placa","Data compra","NF entrada","Origem","Cliente","CPF/CNPJ (mascarado)","Cidade","UF","Compra","Custos","Venda","Lucro","BC IRPJ","IRPJ","BC CSLL","CSLL","PIS","COFINS","BC ICMS","ICMS","Total impostos","Líquido"];
   const q = s => '"'+String(s==null?"":s).replace(/"/g,'""')+'"';
   const lines = [head.map(q).join(";")].concat(rows.map(v=>{ const r=calcVenda(v), c=v.cliente||{}, ve=v.veiculo||{}, x=v.valores;
-    return [v.empresa,fmtData(x.dataVenda),x.nfSaida,ve.modelo,ve.placa,ve.renavam,ve.chassi,fmtData(ve.dataCompra),ve.nfEntrada,ve.origem,c.nome,c.doc,c.endereco,c.cidade,c.uf,c.telefone].map(q)
+    return [v.empresa,fmtData(x.dataVenda),x.nfSaida,ve.modelo,ve.placa,fmtData(ve.dataCompra),ve.nfEntrada,ve.origem,c.nome,mascararDoc(c.doc),c.cidade,c.uf].map(q)
       .concat([x.compra,x.custos||0,x.venda,r.lucro,r.bcIrpj,r.irpj,r.bcCsll,r.csll,r.pis,r.cofins,r.bcIcms,r.icms,r.total,r.liquido].map(n)).join(";"); }));
   const csv = "﻿" + lines.join("\r\n");
   const nome = "vendas-"+empresa+"-"+mes+".csv";
-  try{
-    const dl = window.claude ? await window.claude.use("downloads") : null;
-    if(dl){ await dl.save({filename:nome, data:csv}); return; }
-  }catch(e){ if(e && e.code && /declin|cancel|abort/i.test(e.code+" "+e.message)) return; }
-  try{ await navigator.clipboard.writeText(csv.slice(1)); toast("CSV copiado. Cole no Excel."); }catch(e){ toast("Não foi possível exportar neste navegador"); }
+  baixarArquivo(nome, csv, "text/csv;charset=utf-8");
 });
 
 /* ---------- alíquotas ---------- */
@@ -569,6 +567,7 @@ function mostrarLogin(tela, info){
   $("trocaCriar").hidden = tela!=="entrar";
   $("trocaEntrar").hidden = !(tela==="cadastro" || tela==="confirmar");
   $("bVerificar").hidden = tela!=="aguardando";
+  $("avisoCadastro").hidden = tela!=="cadastro";
   $("bLoginSair").hidden = !["aguardando","recusado","negado"].includes(tela);
   $("loginErr").textContent = ""; $("loginErr").classList.add("err");
   $("login").hidden = false;
@@ -582,7 +581,7 @@ function msgLogin(error){
   if(/already registered|already been registered|user already exists/i.test(m)) return "Este e-mail já tem conta. Toque em \"Entrar\" ou em \"Esqueci minha senha\".";
   if(/signups not allowed|signup is disabled/i.test(m)) return "O cadastro está desligado no momento. Fale com o administrador.";
   if(/failed to fetch|network/i.test(m)) return "Sem internet. Confira a conexão e tente de novo.";
-  if(/password should be at least|weak/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  if(/password should be at least|weak/i.test(m)) return "A senha precisa ter pelo menos 8 caracteres.";
   if(/invalid.*email|email.*invalid/i.test(m)) return "Confira o e-mail digitado.";
   if(/rate limit|too many|security purposes/i.test(m)) return "Muitas tentativas. Espere alguns minutos e tente de novo.";
   return "Não foi possível continuar: " + m;
@@ -597,21 +596,17 @@ function pararBanco(){
 }
 async function entrarNoApp(session){
   usuario = session.user.email; setStatus();
-  const {data, error} = await sb.from("membros").select("email,nome,admin").eq("email", usuario.toLowerCase()).limit(1);
+  // Sem filtro de e-mail na URL (evita o e-mail nos registros do servidor): a regra do banco já devolve só a própria linha (ou todas, para o admin)
+  const {data, error} = await sb.from("membros").select("email,nome,admin");
   if(error){
     const e = erroBanco(error);
     if(e.code==="offline"){ $("login").hidden = true; modo="offline"; $("bSair").hidden=false; setStatus(); toast("Sem internet. As vendas aparecem quando a conexão voltar."); return; }
     mostrarLogin("entrar"); avisoLogin("Erro ao abrir o banco: " + e.message); return;
   }
-  let eu = data && data[0];
+  const eu = (data||[]).find(m=>String(m.email).toLowerCase()===usuario.toLowerCase());
   if(!eu){
-    // e-mail pode ter sido cadastrado com maiúsculas: a regra do banco só devolve a própria linha
-    const r2 = await sb.from("membros").select("email,nome,admin").limit(50);
-    eu = (r2.data||[]).find(m=>String(m.email).toLowerCase()===usuario.toLowerCase());
-  }
-  if(!eu){
-    const {data:ped} = await sb.from("solicitacoes").select("email,status").eq("email", usuario.toLowerCase()).limit(1);
-    const p = ped && ped[0];
+    const {data:ped} = await sb.from("solicitacoes").select("email,status");
+    const p = (ped||[]).find(x=>String(x.email).toLowerCase()===usuario.toLowerCase());
     mostrarLogin(p ? (p.status==="recusado" ? "recusado" : "aguardando") : "negado", usuario);
     return;
   }
@@ -657,7 +652,7 @@ $("loginForm").addEventListener("submit", async e=>{
     const nome = $("lNome").value.trim(), email = $("lEmail").value.trim(), senha = $("lSenha").value;
     if(!nome){ avisoLogin("Digite o seu nome."); $("lNome").focus(); return; }
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ avisoLogin("Digite um e-mail válido."); $("lEmail").focus(); return; }
-    if(senha.length < 6){ avisoLogin("A senha precisa ter pelo menos 6 caracteres."); $("lSenha").focus(); return; }
+    if(senha.length < 8){ avisoLogin("A senha precisa ter pelo menos 8 caracteres."); $("lSenha").focus(); return; }
     $("bEntrar").disabled = true; avisoLogin("Criando a conta…", true);
     const {data, error} = await sb.auth.signUp({email, password:senha, options:{data:{nome}, emailRedirectTo: location.origin + location.pathname}});
     $("bEntrar").disabled = false;
@@ -668,7 +663,7 @@ $("loginForm").addEventListener("submit", async e=>{
     else { mostrarLogin("confirmar", email); }
   } else if(telaLogin==="nova"){
     const nova = $("lNova").value;
-    if(nova.length < 6){ avisoLogin("A senha precisa ter pelo menos 6 caracteres."); return; }
+    if(nova.length < 8){ avisoLogin("A senha precisa ter pelo menos 8 caracteres."); return; }
     $("bEntrar").disabled = true;
     const {error} = await sb.auth.updateUser({password:nova});
     $("bEntrar").disabled = false;
@@ -702,9 +697,85 @@ $("bSair").addEventListener("click", async ()=>{
   if(await confirmar("Sair da conta "+(usuario||"")+" neste aparelho?", "Sair da conta?", "Sair")) sb.auth.signOut();
 });
 
+/* ---------- canal de privacidade (vem do config.js, preenchido pela loja) ---------- */
+function canalPrivacidade(){ const c = (window.TRIX_CONFIG || {}).canalPrivacidade; return (typeof c === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.trim())) ? c.trim() : ""; }
+(function mostrarCanal(){
+  const el = $("rodapeCanal"); if(!el) return;
+  const c = canalPrivacidade();
+  if(c){ el.textContent = " · Canal de privacidade: "; const a = document.createElement("a"); a.href = "mailto:" + c; a.textContent = c; el.appendChild(a); }
+  else { el.textContent = ""; }
+})();
+
+/* ---------- download de arquivo (JSON/CSV) ---------- */
+async function baixarArquivo(nome, texto, tipo){
+  let dl = null;
+  try{ dl = window.claude && window.claude.use ? await window.claude.use("downloads") : null; }catch(e){ dl = null; }
+  if(dl){ try{ await dl.save({filename:nome, data:texto}); toast("Arquivo pronto: "+nome); }catch(e){ if(!(e && e.code==="declined")) toast("Não foi possível baixar o arquivo aqui"); } return; }
+  try{
+    const url = URL.createObjectURL(new Blob([texto], {type: tipo || "application/json"}));
+    const a = document.createElement("a"); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000); toast("Arquivo baixado: "+nome);
+  }catch(e){ toast("Não foi possível baixar o arquivo neste navegador"); }
+}
+
+/* ---------- pedidos de clientes sobre dados (LGPD, arts. 18 e 19) ---------- */
+function vendasDoTitular(doc){ const d = soDig(doc); return d ? vendas.filter(v=>soDig(v.cliente && v.cliente.doc)===d) : []; }
+function renderTitular(){
+  const d = soDig($("tCpf").value);
+  const box = $("tResultado");
+  if(!d){ box.innerHTML = ""; return; }
+  if(d.length!==11 && d.length!==14){ box.innerHTML = '<p class="hint err">CPF tem 11 dígitos e CNPJ tem 14.</p>'; return; }
+  const lista = vendasDoTitular(d);
+  if(!lista.length){ box.innerHTML = '<p class="vazio">Nenhuma venda com esse CPF/CNPJ. Responda ao cliente que a loja não tem dados dele no app.</p>'; return; }
+  const nome = (lista[0].cliente && lista[0].cliente.nome) || "";
+  box.innerHTML = '<p><b>'+esc(nome)+'</b> · '+lista.length+' venda'+(lista.length>1?'s':'')+'</p>'+
+    lista.map(v=>'<div class="tit-venda">'+fmtData(v.valores && v.valores.dataVenda)+' · '+esc((v.veiculo&&v.veiculo.modelo)||"")+' · placa '+esc((v.veiculo&&v.veiculo.placa)||"—")+(v.anonimizado_em?' · <span class="pill">anonimizada</span>':(v.contato_removido_em?' · <span class="pill">contato removido</span>':''))+'</div>').join("")+
+    '<div class="actions">'+
+      '<button type="button" class="btn" id="bTBaixar">Baixar cópia dos dados</button>'+
+      '<button type="button" class="btn" id="bTContato">Apagar endereço e telefone</button>'+
+      '<button type="button" class="btn danger" id="bTTudo">Anonimizar tudo</button>'+
+    '</div>'+
+    '<p class="note">Para <b>corrigir</b> dados, use <b>Editar</b> na venda (aba Vendas). <b>Anonimizar tudo</b> apaga nome, CPF, placa, Renavam e chassi; só faça isso se o prazo de guarda fiscal tiver acabado ou com orientação do contador.</p>';
+  $("bTBaixar").onclick = ()=>{
+    const copia = {titular:{nome, documento:$("tCpf").value.trim()}, gerado_em:new Date().toISOString(), controlador:"Trix Motors", canal:canalPrivacidade() || "(canal de privacidade da loja)",
+      vendas: lista.map(v=>({data_venda:v.valores&&v.valores.dataVenda, nf_saida:v.valores&&v.valores.nfSaida, cliente:v.cliente, veiculo:v.veiculo, valor_venda:v.valores&&v.valores.venda}))};
+    baixarArquivo("dados-cliente-"+d.slice(-4)+"-"+hoje()+".json", JSON.stringify(copia, null, 2), "application/json");
+  };
+  $("bTContato").onclick = async ()=>{ if(await confirmar("Apagar endereço e telefone de "+nome+" em "+lista.length+" venda(s)? Nome, CPF e dados da venda continuam, por causa da guarda fiscal.", "Apagar contato do cliente?", "Apagar")) await pedidoTitular(d, false); };
+  $("bTTudo").onclick = async ()=>{ if(await confirmar("Anonimizar TODOS os dados de "+nome+" ("+lista.length+" venda(s))? Nome, CPF, placa, Renavam e chassi serão apagados e não dá para desfazer. Só faça isso se o prazo de guarda fiscal tiver acabado.", "Anonimizar cliente?", "Anonimizar")) await pedidoTitular(d, true); };
+}
+async function pedidoTitular(doc, completo){
+  if(!sb){ toast("Disponível só com o banco de dados ligado."); return; }
+  const {data, error} = await sb.rpc("anonimizar_cliente", {p_cpf:doc, p_completo:completo});
+  if(error){ const e = erroBanco(error); toast(e.code==="offline" ? msgErro(e,"") : (/function|does not exist/i.test(e.message) ? "Rode o script 003 no Supabase para ativar esta função." : e.message)); return; }
+  toast((completo ? "Dados anonimizados" : "Endereço e telefone apagados")+" em "+(data||0)+" venda(s)");
+  try{ await carregarBanco(); }catch(e){}
+  if(completo){ $("tCpf").value = ""; }
+  renderTitular(); carregarAuditoria();
+}
+$("bTBuscar").addEventListener("click", renderTitular);
+$("tCpf").addEventListener("input", e=>{ e.target.value = mascaraDoc(e.target.value); });
+$("tCpf").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); renderTitular(); } });
+
+/* ---------- registro de auditoria (só leitura) ---------- */
+const NOMES_ACAO = {insert:"criou", update:"alterou", delete:"apagou", pedido_titular:"atendeu pedido de cliente"};
+const NOMES_TAB = {vendas:"venda", membros:"acesso de usuário", solicitacoes:"pedido de acesso", config:"alíquotas", fechamentos:"conferência de DARF"};
+async function carregarAuditoria(){
+  if(!sb || !ehAdmin) return;
+  const {data, error} = await sb.from("auditoria").select("em,quem,acao,tabela,registro,detalhe").order("em", {ascending:false}).limit(40);
+  if(error){ $("listaAuditoria").innerHTML = '<p class="vazio">'+(/does not exist|relation|schema cache/i.test(error.message||"") ? "Rode o script 003 no Supabase para ativar o registro de auditoria." : "Não foi possível carregar o registro.")+'</p>'; return; }
+  $("listaAuditoria").innerHTML = (data||[]).length ? data.map(a=>{
+    const vendaInfo = a.tabela==="vendas" ? (vendas.find(v=>v.id===a.registro) || null) : null;
+    const alvo = a.tabela==="vendas" ? (vendaInfo ? (vendaInfo.veiculo&&vendaInfo.veiculo.modelo||"")+" "+(vendaInfo.veiculo&&vendaInfo.veiculo.placa||"") : "registro "+(a.registro||"")) : (a.registro||"");
+    const campos = a.detalhe && a.detalhe.campos ? " ("+a.detalhe.campos.join(", ")+")" : (a.detalhe && a.detalhe.status ? " ("+a.detalhe.status+")" : (a.detalhe && a.detalhe.tipo ? " ("+String(a.detalhe.tipo).replace(/_/g," ")+", "+a.detalhe.vendas+" venda(s))" : ""));
+    return '<div class="aud"><span class="q">'+esc(dataHora(a.em))+'</span><span><b>'+esc(a.quem||"sistema")+'</b> '+esc(NOMES_ACAO[a.acao]||a.acao)+' '+esc(NOMES_TAB[a.tabela]||a.tabela)+' <small>'+esc(alvo+campos)+'</small></span></div>'; }).join("")
+    : '<p class="vazio">Nada registrado ainda.</p>';
+}
+
 /* ---------- aba Usuários (administrador) ---------- */
 async function carregarUsuarios(){
   if(!sb || !ehAdmin) return;
+  carregarAuditoria();
   const [p, m] = await Promise.all([
     sb.from("solicitacoes").select("email,nome,status,criado_em").order("criado_em", {ascending:false}),
     sb.from("membros").select("email,nome,admin,criado_em").order("nome")
@@ -764,7 +835,7 @@ $("bMigrar").addEventListener("click", async ()=>{
     if(vs.length) await sbUpsert("vendas", vs.map(linhaVenda), {onConflict:"id", ignoreDuplicates:true});
     const fs = Object.entries(pendentesLocais.fechamentos||{}).map(([id,doc])=>({id, doc, atualizado_em:new Date().toISOString()}));
     if(fs.length) await sbUpsert("fechamentos", fs, {onConflict:"id", ignoreDuplicates:true});
-    try{ localStorage.setItem(LS+"-migrado","1"); }catch(e){}
+    try{ localStorage.setItem(LS+"-migrado","1"); localStorage.removeItem(LS); }catch(e){}   // apaga a cópia com dados de clientes do aparelho
     $("migrar").hidden = true; toast(vs.length+" venda"+(vs.length>1?"s":"")+" enviada"+(vs.length>1?"s":"")+" para o banco");
     await carregarBanco();
   }catch(e){ toast(msgErro(e, "Não foi possível enviar agora: "+(e.message||""))); }

@@ -1,18 +1,26 @@
 /* Service worker: deixa o app abrir rápido e funcionar sem internet.
    Busca sempre a versão nova quando há internet; sem internet, usa a cópia guardada.
    Ao publicar mudanças, aumente VERSAO aqui e o ?v= no index.html. */
-const VERSAO = "trix-v12";
+const VERSAO = "trix-v13";
 const ARQUIVOS = [
   "./",
   "./index.html",
-  "./style.css?v=12",
-  "./config.js?v=12",
-  "./lib/supabase.js?v=12",
-  "./script.js?v=12",
-  "./pdf.js?v=12",
-  "./manifest.json?v=12",
-  "./lib/jspdf.umd.min.js?v=12",
-  "./lib/jspdf.plugin.autotable.min.js?v=12",
+  "./style.css?v=13",
+  "./config.js?v=13",
+  "./lib/supabase.js?v=13",
+  "./script.js?v=13",
+  "./pdf.js?v=13",
+  "./manifest.json?v=13",
+  "./lib/jspdf.umd.min.js?v=13",
+  "./lib/jspdf.plugin.autotable.min.js?v=13",
+  "./privacidade.html",
+  "./fonts/barlow-semi-condensed-latin-500-normal.woff2",
+  "./fonts/barlow-semi-condensed-latin-600-normal.woff2",
+  "./fonts/barlow-semi-condensed-latin-700-normal.woff2",
+  "./fonts/source-sans-3-latin-400-normal.woff2",
+  "./fonts/source-sans-3-latin-500-normal.woff2",
+  "./fonts/source-sans-3-latin-600-normal.woff2",
+  "./fonts/source-sans-3-latin-700-normal.woff2",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
@@ -41,16 +49,6 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // Fontes do Google: guarda depois do primeiro uso
-  if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
-    e.respondWith(caches.open(VERSAO + "-fontes").then(async c => {
-      const salvo = await c.match(req);
-      if (salvo) return salvo;
-      try { const r = await fetch(req); if (r.ok || r.type === "opaque") c.put(req, r.clone()); return r; }
-      catch (err) { return Response.error(); }
-    }));
-    return;
-  }
   if (url.origin !== self.location.origin) return;
 
   // Arquivos do app: rede primeiro (sempre a versão mais nova), cópia guardada quando estiver sem internet
