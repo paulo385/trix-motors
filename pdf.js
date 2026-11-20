@@ -111,11 +111,11 @@
       let y = cabecalho(doc, "Relatório de vendas e impostos · " + emp.nome, triNome(dados.tri), "Gerado em " + agora(), logoDe(dados, emp.nome));
 
       const vendas = emp.vendas.slice().sort((a, b) => a.v.valores.dataVenda.localeCompare(b.v.valores.dataVenda));
-      const S = { venda: 0, compra: 0, lucro: 0, total: 0, comissao: 0, liquido: 0, bcIrpj: 0, irpj: 0, bcCsll: 0, csll: 0, pis: 0, cofins: 0, icms: 0 };
+      const S = { venda: 0, compra: 0, lucro: 0, total: 0, liquido: 0, bcIrpj: 0, irpj: 0, bcCsll: 0, csll: 0, pis: 0, cofins: 0, icms: 0 };
       const porMes = {};
       vendas.forEach(({ v, r }) => {
         S.venda += Number(v.valores.venda); S.compra += Number(v.valores.compra);
-        ["lucro", "total", "comissao", "liquido", "bcIrpj", "irpj", "bcCsll", "csll", "pis", "cofins", "icms"].forEach(k => S[k] += r[k] || 0);
+        ["lucro", "total", "liquido", "bcIrpj", "irpj", "bcCsll", "csll", "pis", "cofins", "icms"].forEach(k => S[k] += r[k]);
         const m = Number(v.valores.dataVenda.slice(5, 7)) - 1;
         const p = porMes[m] = porMes[m] || { n: 0, venda: 0, lucro: 0, pis: 0, cofins: 0, icms: 0 };
         p.n++; p.venda += Number(v.valores.venda); p.lucro += r.lucro; p.pis += r.pis; p.cofins += r.cofins; p.icms += r.icms;
@@ -137,17 +137,17 @@
       } else {
         y = tabela(doc, Object.assign({}, baseTabela, {
           startY: y + 1,
-          head: [["Data", "Veículo", "Placa", "Cliente", "Compra", "Venda", "Lucro", "IRPJ", "CSLL", "PIS", "COFINS", "ICMS", "Impostos", "Comissão", "Líquido", "% s/ lucro"]],
+          head: [["Data", "NF saída", "Veículo", "Placa", "Cliente", "Compra", "Venda", "Lucro", "IRPJ", "CSLL", "PIS", "COFINS", "ICMS", "Impostos", "Líquido", "% s/ lucro"]],
           body: vendas.map(({ v, r }) => [
-            data(v.valores.dataVenda), v.veiculo.modelo || "-", v.veiculo.placa || "-", (v.cliente && v.cliente.nome) || "-",
-            num(v.valores.compra), num(v.valores.venda), num(r.lucro), num(r.irpj), num(r.csll), num(r.pis), num(r.cofins), num(r.icms), num(r.total), num(r.comissao || 0), num(r.liquido), pct(r.pct)]),
-          foot: [["Total", vendas.length + " venda" + (vendas.length > 1 ? "s" : ""), "", "", num(S.compra), num(S.venda), num(S.lucro), num(S.irpj), num(S.csll), num(S.pis), num(S.cofins), num(S.icms), num(S.total), num(S.comissao), num(S.liquido), S.lucro > 0 ? pct(S.total / S.lucro) : "-"]],
+            data(v.valores.dataVenda), v.valores.nfSaida || "-", v.veiculo.modelo || "-", v.veiculo.placa || "-", (v.cliente && v.cliente.nome) || "-",
+            num(v.valores.compra), num(v.valores.venda), num(r.lucro), num(r.irpj), num(r.csll), num(r.pis), num(r.cofins), num(r.icms), num(r.total), num(r.liquido), pct(r.pct)]),
+          foot: [["Total", "", vendas.length + " venda" + (vendas.length > 1 ? "s" : ""), "", "", num(S.compra), num(S.venda), num(S.lucro), num(S.irpj), num(S.csll), num(S.pis), num(S.cofins), num(S.icms), num(S.total), num(S.liquido), S.lucro > 0 ? pct(S.total / S.lucro) : "-"]],
           showFoot: "lastPage",
           styles: Object.assign({}, baseTabela.styles, { fontSize: 7.5, cellPadding: 1.5 }),
           headStyles: Object.assign({}, baseTabela.headStyles, { fontSize: 7, halign: "right" }),
           footStyles: Object.assign({}, baseTabela.footStyles, { halign: "right" }),
-          columnStyles: (() => { const c = {}; for (let i = 4; i <= 15; i++) c[i] = { halign: "right" }; c[3] = { cellWidth: 34 }; return c; })(),
-          didParseCell: h => { if (h.column.index <= 3 && (h.section === "head" || h.section === "foot")) h.cell.styles.halign = "left"; },
+          columnStyles: (() => { const c = {}; for (let i = 5; i <= 15; i++) c[i] = { halign: "right" }; c[4] = { cellWidth: 34 }; return c; })(),
+          didParseCell: h => { if (h.column.index <= 4 && (h.section === "head" || h.section === "foot")) h.cell.styles.halign = "left"; },
         })) + 8;
       }
 
@@ -253,7 +253,7 @@
       didParseCell: h => { if (h.section === "foot" && h.column.index >= 3) h.cell.styles.halign = "right"; if (h.section === "head" && h.column.index >= 2) h.cell.styles.halign = "right"; },
     })) + 6;
 
-    const res = [["Valor de venda", num(Number(x.venda))], ["(-) Valor de compra", num(Number(x.compra))], ["(=) Lucro bruto", num(r.lucro)], ["(-) Impostos", num(r.total)], ["(-) Comissão do vendedor" + (x.vendedor ? " (" + x.vendedor + ")" : ""), num(r.comissao || 0)], ["(=) Líquido da venda", num(r.liquido)]];
+    const res = [["Valor de venda", num(Number(x.venda))], ["(-) Valor de compra", num(Number(x.compra))], ["(=) Lucro bruto", num(r.lucro)], ["(-) Impostos", num(r.total)], ["(=) Líquido da venda", num(r.liquido)]];
     if (r.custos) { res.push(["(-) Custos de preparação", num(r.custos)]); res.push(["(=) Sobra no bolso", num(r.real)]); }
     y = titulo2(doc, y, "Resultado");
     y = tabela(doc, Object.assign({}, baseTabela, {
@@ -264,7 +264,7 @@
       didParseCell: h => { if (String(h.row.raw[0]).startsWith("(=)")) { h.cell.styles.fontStyle = "bold"; h.cell.styles.fillColor = FUNDO; } },
     })) + 6;
 
-    const extra = [["Vendedor", x.vendedor]].filter(([, val]) => val);
+    const extra = [["NF de saída", x.nfSaida], ["Vendedor", x.vendedor]].filter(([, val]) => val);
     if (extra.length) {
       doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...CINZA);
       doc.text(extra.map(([k, val]) => k + ": " + val).join("   ·   "), 14, y); y += 6;
@@ -278,10 +278,10 @@
   /* ---------------- Relatório do mês ----------------
      dados = { mes:"2026-11", empresa, vendasMes:[{v,r}], vendasTri:[{v,r}], fech, adicLimite, adic, logo } */
   function somar(lista) {
-    const S = { n: 0, venda: 0, compra: 0, lucro: 0, total: 0, comissao: 0, liquido: 0, bcIrpj: 0, irpj: 0, bcCsll: 0, csll: 0, base: 0, pis: 0, cofins: 0, bcIcms: 0, icms: 0 };
+    const S = { n: 0, venda: 0, compra: 0, lucro: 0, total: 0, liquido: 0, bcIrpj: 0, irpj: 0, bcCsll: 0, csll: 0, base: 0, pis: 0, cofins: 0, bcIcms: 0, icms: 0 };
     lista.forEach(({ v, r }) => {
       S.n++; S.venda += Number(v.valores.venda); S.compra += Number(v.valores.compra);
-      ["lucro", "total", "comissao", "liquido", "bcIrpj", "irpj", "bcCsll", "csll", "base", "pis", "cofins", "bcIcms", "icms"].forEach(k => S[k] += r[k] || 0);
+      ["lucro", "total", "liquido", "bcIrpj", "irpj", "bcCsll", "csll", "base", "pis", "cofins", "bcIcms", "icms"].forEach(k => S[k] += r[k] || 0);
     });
     return S;
   }
@@ -315,17 +315,17 @@
     } else {
       y = tabela(doc, Object.assign({}, baseTabela, {
         startY: y + 1,
-        head: [["Data", "Veículo", "Placa", "Cliente", "Compra", "Venda", "Lucro", "IRPJ", "CSLL", "PIS", "COFINS", "ICMS", "Impostos", "Comissão", "Líquido", "% s/ lucro"]],
+        head: [["Data", "NF saída", "Veículo", "Placa", "Cliente", "Compra", "Venda", "Lucro", "IRPJ", "CSLL", "PIS", "COFINS", "ICMS", "Impostos", "Líquido", "% s/ lucro"]],
         body: vendas.map(({ v, r }) => [
-          data(v.valores.dataVenda), v.veiculo.modelo || "-", v.veiculo.placa || "-", (v.cliente && v.cliente.nome) || "-",
-          num(v.valores.compra), num(v.valores.venda), num(r.lucro), num(r.irpj), num(r.csll), num(r.pis), num(r.cofins), num(r.icms), num(r.total), num(r.comissao || 0), num(r.liquido), pct(r.pct)]),
-        foot: [["Total", S.n + " venda" + (S.n > 1 ? "s" : ""), "", "", num(S.compra), num(S.venda), num(S.lucro), num(S.irpj), num(S.csll), num(S.pis), num(S.cofins), num(S.icms), num(S.total), num(S.comissao), num(S.liquido), S.lucro > 0 ? pct(S.total / S.lucro) : "-"]],
+          data(v.valores.dataVenda), v.valores.nfSaida || "-", v.veiculo.modelo || "-", v.veiculo.placa || "-", (v.cliente && v.cliente.nome) || "-",
+          num(v.valores.compra), num(v.valores.venda), num(r.lucro), num(r.irpj), num(r.csll), num(r.pis), num(r.cofins), num(r.icms), num(r.total), num(r.liquido), pct(r.pct)]),
+        foot: [["Total", "", S.n + " venda" + (S.n > 1 ? "s" : ""), "", "", num(S.compra), num(S.venda), num(S.lucro), num(S.irpj), num(S.csll), num(S.pis), num(S.cofins), num(S.icms), num(S.total), num(S.liquido), S.lucro > 0 ? pct(S.total / S.lucro) : "-"]],
         showFoot: "lastPage",
         styles: Object.assign({}, baseTabela.styles, { fontSize: 7.5, cellPadding: 1.5 }),
         headStyles: Object.assign({}, baseTabela.headStyles, { fontSize: 7, halign: "right" }),
         footStyles: Object.assign({}, baseTabela.footStyles, { halign: "right" }),
-        columnStyles: (() => { const c = {}; for (let i = 4; i <= 15; i++) c[i] = { halign: "right" }; c[3] = { cellWidth: 34 }; return c; })(),
-        didParseCell: h => { if (h.column.index <= 3 && (h.section === "head" || h.section === "foot")) h.cell.styles.halign = "left"; },
+        columnStyles: (() => { const c = {}; for (let i = 5; i <= 15; i++) c[i] = { halign: "right" }; c[4] = { cellWidth: 34 }; return c; })(),
+        didParseCell: h => { if (h.column.index <= 4 && (h.section === "head" || h.section === "foot")) h.cell.styles.halign = "left"; },
       })) + 8;
     }
 
