@@ -5,6 +5,6 @@
    NUNCA coloque aqui a chave "secret" ou "service_role": este arquivo fica público.
    Deixando em branco, o app salva as vendas só no aparelho. */
 window.TRIX_CONFIG = {
-  supabaseUrl: "",
-  supabaseKey: ""
+  supabaseUrl: "https://pupijwvgzzmejtdbwjob.supabase.co",
+  supabaseKey: "sb_publishable_AAbLRekV3QbgL7TDstWv2w_IWhWOlF8"
 };
