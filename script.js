@@ -338,16 +338,22 @@ const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Ag
 
 function renderVendas(){
   const daEmpresa = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda);
-  const meses = new Set(daEmpresa.map(v=>mesDe(v.valores.dataVenda))); meses.add(mesDe(hoje()));
-  const lista = [...meses].sort().reverse();
-  const sel = $("selMes"); const atual = sel.value && lista.includes(sel.value) ? sel.value : lista[0];
-  sel.innerHTML = lista.map(k=>'<option value="'+k+'"'+(k===atual?" selected":"")+'>'+mesNome(k)+'</option>').join("");
-  const mes = atual;
+  // calendário: 12 meses + ano; começa no mês de hoje
+  if(!mesEscolhido) mesEscolhido = mesDe(hoje());
+  const [anoSel, mesSelN] = mesEscolhido.split("-").map(Number);
+  const anoHoje = Number(hoje().slice(0,4));
+  const anos = new Set([anoHoje, anoHoje+1, anoSel]); daEmpresa.forEach(v=>anos.add(Number(v.valores.dataVenda.slice(0,4))));
+  const qtdMes = {}; daEmpresa.forEach(v=>{ const k=mesDe(v.valores.dataVenda); qtdMes[k]=(qtdMes[k]||0)+1; });
+  $("selMes").innerHTML = MESES_NOME.map((n,i)=>{ const k=anoSel+"-"+String(i+1).padStart(2,"0"); const c=qtdMes[k];
+    return '<option value="'+(i+1)+'"'+(i+1===mesSelN?" selected":"")+'>'+n+(c?" ("+c+" venda"+(c>1?"s":"")+")":"")+(k===mesDe(hoje())?" · atual":"")+'</option>'; }).join("");
+  $("selAno").innerHTML = [...anos].sort((a,b)=>b-a).map(a=>'<option value="'+a+'"'+(a===anoSel?" selected":"")+'>'+a+'</option>').join("");
+  $("bMesAtual").hidden = mesEscolhido === mesDe(hoje());
+  const mes = mesEscolhido;
   const doMes = daEmpresa.filter(v=>mesDe(v.valores.dataVenda)===mes).sort((a,b)=>a.valores.dataVenda.localeCompare(b.valores.dataVenda));
   const tri = triDe(mes+"-01");
   const doTri = daEmpresa.filter(v=>triDe(v.valores.dataVenda)===tri);
   const q = $("busca").value.trim().toLowerCase();
-  const vis = q ? doMes.filter(v=>[v.veiculo?.placa,v.veiculo?.modelo,v.cliente?.nome].join(" ").toLowerCase().includes(q)) : doTri;
+  const vis = q ? doMes.filter(v=>[v.veiculo?.placa,v.veiculo?.modelo,v.cliente?.nome].join(" ").toLowerCase().includes(q)) : doMes;
 
   const somar = lista => { const A = {n:0,venda:0,compra:0,lucro:0,total:0,liquido:0,bcIrpj:0,irpj:0,bcCsll:0,csll:0,base:0,pis:0,cofins:0,bcIcms:0,icms:0};
     lista.forEach(v=>{ const r=calcVenda(v); A.n++; A.venda+=Number(v.valores.venda); A.compra+=Number(v.valores.compra);
@@ -417,7 +423,14 @@ function renderVendas(){
 
   function tile(l,v){ return '<div class="tile"><div class="lbl">'+l+'</div><div class="v num">'+v+'</div></div>'; }
 }
-$("selMes").addEventListener("change", renderVendas);
+let mesEscolhido = null;
+function irParaMes(k){ mesEscolhido = k; renderVendas(); }
+function somaMes(k, d){ let [y,m]=k.split("-").map(Number); m+=d; while(m<1){m+=12;y--;} while(m>12){m-=12;y++;} return y+"-"+String(m).padStart(2,"0"); }
+$("selMes").addEventListener("change", ()=>irParaMes($("selAno").value+"-"+String($("selMes").value).padStart(2,"0")));
+$("selAno").addEventListener("change", ()=>irParaMes($("selAno").value+"-"+String($("selMes").value).padStart(2,"0")));
+$("bMesAnt").addEventListener("click", ()=>irParaMes(somaMes(mesEscolhido||mesDe(hoje()), -1)));
+$("bMesProx").addEventListener("click", ()=>irParaMes(somaMes(mesEscolhido||mesDe(hoje()), 1)));
+$("bMesAtual").addEventListener("click", ()=>irParaMes(mesDe(hoje())));
 $("busca").addEventListener("input", renderVendas);
 $("tbVendas").addEventListener("click", async e=>{
   const ed = e.target.closest("[data-ed]"), del = e.target.closest("[data-del]"), pdf = e.target.closest("[data-pdf]");
@@ -466,7 +479,7 @@ async function pdfDaVenda(v, emp){
 $("bPdfTri").addEventListener("click", async ()=>{
   const J = jsPDFpronto(); if(!J) return;
   const logo = await carregarLogo();
-  const mes = $("selMes").value;
+  const mes = mesEscolhido || mesDe(hoje());
   const tri = triDe(mes+"-01");
   const fid = empresa.replace(/[^A-Za-z0-9_-]/g,"_")+"-"+tri;
   const daEmp = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda);
@@ -478,7 +491,7 @@ $("bPdfTri").addEventListener("click", async ()=>{
 
 /* ---------- CSV ---------- */
 $("bCsv").addEventListener("click", async ()=>{
-  const mes = $("selMes").value;
+  const mes = mesEscolhido || mesDe(hoje());
   const rows = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda && mesDe(v.valores.dataVenda)===mes).sort((a,b)=>a.valores.dataVenda.localeCompare(b.valores.dataVenda));
   const n = x => Number(x).toFixed(2).replace(".",",");
   const head = ["Empresa","Data venda","NF saída","Modelo","Placa","Renavam","Chassi","Data compra","NF entrada","Origem","Cliente","CPF/CNPJ","Endereço","Cidade","UF","Telefone","Compra","Custos","Venda","Lucro","BC IRPJ","IRPJ","BC CSLL","CSLL","PIS","COFINS","BC ICMS","ICMS","Total impostos","Líquido"];

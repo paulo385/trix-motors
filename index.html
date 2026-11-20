@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=8">
+<link rel="manifest" href="manifest.json?v=9">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -33,7 +33,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -126,7 +126,15 @@
 <!-- ============ VENDAS ============ -->
 <section class="view" id="v-vendas">
   <div class="toolbar">
-    <div class="f"><label for="selMes">Mês</label><select id="selMes"></select></div>
+    <div class="f periodo"><label for="selMes">Mês</label>
+      <div class="periodo-ctl">
+        <button type="button" class="btn seta" id="bMesAnt" aria-label="Mês anterior"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <select id="selMes"></select>
+        <select id="selAno" aria-label="Ano"></select>
+        <button type="button" class="btn seta" id="bMesProx" aria-label="Próximo mês"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <button type="button" class="btn link sm" id="bMesAtual" hidden>Voltar para o mês atual</button>
+    </div>
     <div class="f" style="flex:1"><label for="busca">Buscar placa, modelo ou cliente</label><input id="busca" placeholder="Digite para filtrar"></div>
     <button class="btn primary" id="bPdfTri" type="button">RELATÓRIO PDF</button>
     <button class="btn" id="bCsv" type="button">Exportar CSV</button>
@@ -174,11 +182,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=8"></script>
-<script src="lib/supabase.js?v=8"></script>
-<script src="lib/jspdf.umd.min.js?v=8"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=8"></script>
-<script src="pdf.js?v=8"></script>
-<script src="script.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="lib/supabase.js?v=9"></script>
+<script src="lib/jspdf.umd.min.js?v=9"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=9"></script>
+<script src="pdf.js?v=9"></script>
+<script src="script.js?v=9"></script>
 </body>
 </html>

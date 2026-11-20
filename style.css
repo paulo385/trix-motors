@@ -248,3 +248,12 @@ header.top{padding-top:env(safe-area-inset-top)}
 @media (max-width:720px){
   .sair{order:2}
 }
+
+/* ===================== Seletor de mês ===================== */
+.toolbar .f.periodo{min-width:min(100%,360px)}
+.periodo-ctl{display:flex;gap:6px;align-items:stretch}
+.periodo-ctl select#selMes{flex:1 1 auto;min-width:0}
+.periodo-ctl select#selAno{flex:0 0 92px}
+.btn.seta{padding:0 10px;display:inline-flex;align-items:center;justify-content:center;min-width:42px}
+#bMesAtual{align-self:flex-start;padding:2px 0}
+#bMesAtual[hidden]{display:none}
