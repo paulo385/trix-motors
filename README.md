@@ -11,6 +11,7 @@ Site em HTML, CSS e JavaScript puro, sem framework, para cadastrar vendas de ve�
 | `script.js` | Cálculo dos impostos, validações (CPF, placa, Renavam), histórico e fechamento |
 | `config.js` | Endereço e chave pública do banco de dados (Supabase). Em branco = vendas só no aparelho |
 | `supabase/setup.sql` | Script que cria as tabelas e as regras de acesso no Supabase |
+| `supabase/002-cadastro-com-aprovacao.sql` | Script do cadastro de vendedores com aprovação do administrador |
 | `.github/workflows/manter-banco-ativo.yml` | Rotina do GitHub que evita a pausa do banco grátis |
 | `pdf.js` | Monta os PDFs: relatório do mês e resumo de cada venda |
 | `manifest.json` | Nome, ícone e cores do app quando instalado no celular |
@@ -58,18 +59,20 @@ Com o banco ligado, cada pessoa entra com e-mail e senha, e **todos os aparelhos
 1. Crie uma conta em **supabase.com** e clique em **New project**. Nome: `trix-motors`. Região: **South America (São Paulo)**. Anote a senha do banco.
 2. Abra **SQL Editor** → **New query**, cole todo o conteúdo de `supabase/setup.sql` e troque `seu-email@exemplo.com` pelo seu e-mail real. Clique em **Run**.
 3. Em **Authentication → Users → Add user → Create new user**, crie o seu usuário (o mesmo e-mail) com uma senha e marque **Auto Confirm User**. Repita para cada vendedor.
-4. Em **Authentication → Sign In / Providers**, desligue **Allow new users to sign up**, para ninguém criar conta sozinho.
+4. Rode também `supabase/002-cadastro-com-aprovacao.sql` e, em **Authentication → Sign In / Providers**, deixe **Allow new users to sign up** ligado e **Confirm email** desligado (o acesso só é liberado depois da sua aprovação).
 5. Em **Authentication → URL Configuration**, coloque em **Site URL**: `https://paulo385.github.io/trix-motors/` (usado no "Esqueci minha senha").
 6. Em **Project Settings → API Keys**, copie o **Project URL** e a chave **publishable** (ou **anon public**) e coloque no `config.js`.
 
 Nunca use a chave **secret** / **service_role** no `config.js`: ele fica público.
 
-### Incluir um vendedor novo
+### Cadastro de vendedores (com aprovação)
 
-1. **Authentication → Users → Add user**: e-mail e senha, com **Auto Confirm User**.
-2. **Table Editor → membros → Insert row**: o mesmo e-mail, nome e `admin` = false.
+1. Rode também o `supabase/002-cadastro-com-aprovacao.sql` no SQL Editor (uma vez só).
+2. Em **Authentication → Sign In / Providers**, deixe **Allow new users to sign up** LIGADO e **Confirm email** DESLIGADO.
+3. O vendedor abre o app, toca em **Criar conta** e preenche nome, e-mail e senha.
+4. Você (administrador) abre a aba **Usuários** no app, que mostra os pedidos, e toca em **Aprovar** ou **Recusar**.
 
-Só quem está na tabela `membros` vê as vendas, mesmo que tenha uma conta. Quem tem `admin` = true também pode mudar as alíquotas.
+Na mesma aba dá para **remover o acesso** de quem sair da loja e **tornar alguém administrador**. Quem não foi aprovado não vê nenhuma venda, mesmo tendo conta: a conferência é feita no banco.
 
 ### Ver e exportar as vendas pelo Supabase
 

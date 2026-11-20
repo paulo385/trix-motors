@@ -2,6 +2,7 @@
 --  Trix Motors · Venda e Impostos — banco de dados (Supabase)
 --  Como usar: Supabase → SQL Editor → New query → cole TUDO → Run.
 --  Pode rodar de novo sem problema: ele não apaga dados.
+--  Depois rode também o 002-cadastro-com-aprovacao.sql.
 -- =====================================================================
 
 -- 1) Quem pode usar o app ------------------------------------------------

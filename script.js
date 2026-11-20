@@ -61,6 +61,7 @@ let vendas = [];
 let fechamentos = {};
 let db = null, modo = "conectando";
 let sb = null, usuario = null, ehAdmin = false, canal = null;
+let pedidos = [], membros = [];
 let empresa = null;
 let editId = null;
 let ultimo = null; // último cálculo válido do formulário
@@ -130,10 +131,12 @@ function assinarMudancas(){
       .on("postgres_changes", {event:"*", schema:"public", table:"vendas"}, agendarRecarga)
       .on("postgres_changes", {event:"*", schema:"public", table:"fechamentos"}, agendarRecarga)
       .on("postgres_changes", {event:"*", schema:"public", table:"config"}, agendarRecarga)
+      .on("postgres_changes", {event:"*", schema:"public", table:"solicitacoes"}, ()=>{ if(ehAdmin) carregarUsuarios(); })
+      .on("postgres_changes", {event:"*", schema:"public", table:"membros"}, ()=>{ if(ehAdmin) carregarUsuarios(); })
       .subscribe();
   }catch(e){ canal = null; }
 }
-document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && modo!=="local" && sb && usuario) agendarRecarga(); });
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && modo!=="local" && sb && usuario){ agendarRecarga(); if(ehAdmin) carregarUsuarios(); } });
 
 async function salvarVenda(obj){
   if(modo==="banco" || modo==="offline"){ await sbUpsert("vendas", linhaVenda(obj)); const i=vendas.findIndex(v=>v.id===obj.id); if(i>=0) vendas[i]=obj; else vendas.push(obj); renderTudo(); }
@@ -184,7 +187,8 @@ function renderEmpresas(){
 /* ---------- abas ---------- */
 function rota(){
   const v = (location.hash||"#nova").slice(1);
-  const ok = ["nova","vendas","aliquotas"].includes(v) ? v : "nova";
+  const validas = ["nova","vendas","aliquotas"].concat(typeof ehAdmin!=="undefined" && ehAdmin ? ["usuarios"] : []);
+  const ok = validas.includes(v) ? v : "nova";
   document.querySelectorAll("section.view").forEach(s=>s.classList.toggle("on", s.id==="v-"+ok));
   document.querySelectorAll("nav.tabs a").forEach(a=>{ if(a.dataset.v===ok) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
 }
@@ -534,53 +538,89 @@ function renderTudo(){
 /* ---------- inicialização ---------- */
 limpar(); rota(); renderTudo();
 
-/* ---------- login (Supabase) ---------- */
+/* ---------- login e cadastro (Supabase) ---------- */
 let telaLogin = "entrar";
 const recuperandoSenha = /type=recovery/.test(location.hash);
+const TELAS = {
+  //          título                    subtítulo                                                                                  botão principal   campos visíveis
+  entrar:   ["Entrar",                  "Use seu e-mail e senha.",                                                                "ENTRAR",         ["campoEmail","campoSenha"]],
+  cadastro: ["Criar conta",             "Depois de criar, o administrador precisa aprovar o seu acesso.",                           "CRIAR CONTA",    ["campoNome","campoEmail","campoSenha"]],
+  nova:     ["Criar nova senha",        "Digite a nova senha para a sua conta.",                                                  "SALVAR SENHA",   ["campoNova"]],
+  confirmar:["Confirme seu e-mail",     "",                                                                                       "",               []],
+  aguardando:["Aguardando aprovação",   "",                                                                                       "",               []],
+  recusado: ["Cadastro não aprovado",   "",                                                                                       "",               []],
+  negado:   ["Acesso não liberado",     "",                                                                                       "",               []]
+};
 function mostrarLogin(tela, info){
   telaLogin = tela;
-  const L = {
-    entrar: ["Entrar", "Use o e-mail e a senha cadastrados pelo administrador.", "ENTRAR"],
-    nova:   ["Criar nova senha", "Digite a nova senha para a sua conta.", "SALVAR SENHA"],
-    negado: ["Acesso não liberado", "O e-mail "+(info||"")+" entrou, mas não está na lista de usuários do app. Peça ao administrador para incluir.", ""]
-  }[tela];
-  $("loginTitulo").textContent = L[0]; $("loginSub").textContent = L[1];
-  $("campoEmail").hidden = tela!=="entrar"; $("campoSenha").hidden = tela!=="entrar"; $("campoNova").hidden = tela!=="nova";
-  $("bEntrar").hidden = tela==="negado"; $("bEntrar").textContent = L[2]; $("bEntrar").disabled = false;
-  $("bEsqueci").hidden = tela!=="entrar"; $("bLoginSair").hidden = tela!=="negado";
+  const T = TELAS[tela];
+  const subs = {
+    confirmar: "Enviamos um link para "+(info||"o seu e-mail")+". Abra o e-mail, confirme e depois volte aqui para entrar.",
+    aguardando: "Seu cadastro ("+(info||"")+") foi enviado. Assim que o administrador aprovar, você consegue entrar. Pode fechar o app e voltar depois.",
+    recusado: "O cadastro de "+(info||"")+" não foi aprovado. Se achar que é um engano, fale com o administrador.",
+    negado: "O e-mail "+(info||"")+" não tem acesso ao app. Peça ao administrador para liberar."
+  };
+  $("loginTitulo").textContent = T[0];
+  $("loginSub").textContent = subs[tela] || T[1];
+  ["campoNome","campoEmail","campoSenha","campoNova"].forEach(id=>{ $(id).hidden = !T[3].includes(id); });
+  $("lSenha").autocomplete = tela==="cadastro" ? "new-password" : "current-password";
+  $("bEntrar").hidden = !T[2]; $("bEntrar").textContent = T[2]; $("bEntrar").disabled = false;
+  $("bEsqueci").hidden = tela!=="entrar";
+  $("trocaCriar").hidden = tela!=="entrar";
+  $("trocaEntrar").hidden = !(tela==="cadastro" || tela==="confirmar");
+  $("bVerificar").hidden = tela!=="aguardando";
+  $("bLoginSair").hidden = !["aguardando","recusado","negado"].includes(tela);
   $("loginErr").textContent = ""; $("loginErr").classList.add("err");
   $("login").hidden = false;
-  setTimeout(()=>{ const alvo = tela==="nova" ? $("lNova") : ($("lEmail").value ? $("lSenha") : $("lEmail")); if(alvo && !alvo.closest("[hidden]")) alvo.focus(); }, 50);
+  setTimeout(()=>{ const alvo = T[3].map(id=>$(id).querySelector("input")).find(el=>el && !el.value) || T[3].map(id=>$(id).querySelector("input"))[0]; if(alvo) alvo.focus(); }, 50);
 }
 function avisoLogin(msg, ok){ $("loginErr").textContent = msg; $("loginErr").classList.toggle("err", !ok); }
 function msgLogin(error){
   const m = String((error && error.message) || "");
   if(/invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
   if(/email not confirmed/i.test(m)) return "Este e-mail ainda não foi confirmado. Confira sua caixa de entrada.";
+  if(/already registered|already been registered|user already exists/i.test(m)) return "Este e-mail já tem conta. Toque em \"Entrar\" ou em \"Esqueci minha senha\".";
+  if(/signups not allowed|signup is disabled/i.test(m)) return "O cadastro está desligado no momento. Fale com o administrador.";
   if(/failed to fetch|network/i.test(m)) return "Sem internet. Confira a conexão e tente de novo.";
   if(/password should be at least|weak/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
-  if(/rate limit|too many/i.test(m)) return "Muitas tentativas. Espere alguns minutos e tente de novo.";
-  return "Não foi possível entrar: " + m;
+  if(/invalid.*email|email.*invalid/i.test(m)) return "Confira o e-mail digitado.";
+  if(/rate limit|too many|security purposes/i.test(m)) return "Muitas tentativas. Espere alguns minutos e tente de novo.";
+  return "Não foi possível continuar: " + m;
 }
 function pararBanco(){
   if(canal && sb){ try{ sb.removeChannel(canal); }catch(e){} }
   canal = null; usuario = null; ehAdmin = false;
-  vendas = []; fechamentos = {}; cfg = {...PADRAO};
-  $("bSair").hidden = true; $("migrar").hidden = true;
+  vendas = []; fechamentos = {}; cfg = {...PADRAO}; pedidos = []; membros = [];
+  $("bSair").hidden = true; $("migrar").hidden = true; $("navUsuarios").hidden = true;
+  if(location.hash==="#usuarios") location.hash = "#nova";
   renderTudo();
 }
 async function entrarNoApp(session){
   usuario = session.user.email; setStatus();
-  const {data, error} = await sb.from("membros").select("email,nome,admin").limit(1);
+  const {data, error} = await sb.from("membros").select("email,nome,admin").eq("email", usuario.toLowerCase()).limit(1);
   if(error){
     const e = erroBanco(error);
     if(e.code==="offline"){ $("login").hidden = true; modo="offline"; $("bSair").hidden=false; setStatus(); toast("Sem internet. As vendas aparecem quando a conexão voltar."); return; }
     mostrarLogin("entrar"); avisoLogin("Erro ao abrir o banco: " + e.message); return;
   }
-  if(!data || !data.length){ mostrarLogin("negado", usuario); return; }
-  ehAdmin = !!data[0].admin;
+  let eu = data && data[0];
+  if(!eu){
+    // e-mail pode ter sido cadastrado com maiúsculas: a regra do banco só devolve a própria linha
+    const r2 = await sb.from("membros").select("email,nome,admin").limit(50);
+    eu = (r2.data||[]).find(m=>String(m.email).toLowerCase()===usuario.toLowerCase());
+  }
+  if(!eu){
+    const {data:ped} = await sb.from("solicitacoes").select("email,status").eq("email", usuario.toLowerCase()).limit(1);
+    const p = ped && ped[0];
+    mostrarLogin(p ? (p.status==="recusado" ? "recusado" : "aguardando") : "negado", usuario);
+    return;
+  }
+  ehAdmin = !!eu.admin;
   $("login").hidden = true; $("bSair").hidden = false; modo = "banco"; setStatus();
+  $("navUsuarios").hidden = !ehAdmin;
+  rota();
   try{ await carregarBanco(); }catch(e){ if(e.code==="offline"){ modo="offline"; setStatus(); } else toast("Erro ao carregar as vendas: " + e.message); }
+  if(ehAdmin) carregarUsuarios();
   assinarMudancas();
   verificarMigracao();
 }
@@ -613,6 +653,19 @@ $("loginForm").addEventListener("submit", async e=>{
     if(error){ avisoLogin(msgLogin(error)); return; }
     $("lSenha").value = "";
     await entrarNoApp(data.session);
+  } else if(telaLogin==="cadastro"){
+    const nome = $("lNome").value.trim(), email = $("lEmail").value.trim(), senha = $("lSenha").value;
+    if(!nome){ avisoLogin("Digite o seu nome."); $("lNome").focus(); return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ avisoLogin("Digite um e-mail válido."); $("lEmail").focus(); return; }
+    if(senha.length < 6){ avisoLogin("A senha precisa ter pelo menos 6 caracteres."); $("lSenha").focus(); return; }
+    $("bEntrar").disabled = true; avisoLogin("Criando a conta…", true);
+    const {data, error} = await sb.auth.signUp({email, password:senha, options:{data:{nome}, emailRedirectTo: location.origin + location.pathname}});
+    $("bEntrar").disabled = false;
+    if(error){ avisoLogin(msgLogin(error)); return; }
+    $("lSenha").value = "";
+    if(data && data.session){ await entrarNoApp(data.session); }
+    else if(data && data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){ mostrarLogin("entrar"); avisoLogin("Este e-mail já tem conta. Entre com a sua senha ou toque em \"Esqueci minha senha\"."); }
+    else { mostrarLogin("confirmar", email); }
   } else if(telaLogin==="nova"){
     const nova = $("lNova").value;
     if(nova.length < 6){ avisoLogin("A senha precisa ter pelo menos 6 caracteres."); return; }
@@ -627,6 +680,15 @@ $("loginForm").addEventListener("submit", async e=>{
     if(data && data.session) await entrarNoApp(data.session); else mostrarLogin("entrar");
   }
 });
+$("bIrCriar").addEventListener("click", ()=>mostrarLogin("cadastro"));
+$("bIrEntrar").addEventListener("click", ()=>mostrarLogin("entrar"));
+$("bVerificar").addEventListener("click", async ()=>{
+  $("bVerificar").disabled = true;
+  const {data} = await sb.auth.getSession();
+  $("bVerificar").disabled = false;
+  if(data && data.session) await entrarNoApp(data.session); else mostrarLogin("entrar");
+  if(telaLogin==="aguardando") avisoLogin("Ainda aguardando a aprovação.", true);
+});
 $("bEsqueci").addEventListener("click", async ()=>{
   const email = $("lEmail").value.trim();
   if(!email){ avisoLogin("Digite seu e-mail acima e toque de novo em \"Esqueci minha senha\"."); $("lEmail").focus(); return; }
@@ -638,6 +700,50 @@ $("bLoginSair").addEventListener("click", ()=>{ sb && sb.auth.signOut(); });
 $("bSair").addEventListener("click", async ()=>{
   if(!sb) return;
   if(await confirmar("Sair da conta "+(usuario||"")+" neste aparelho?", "Sair da conta?", "Sair")) sb.auth.signOut();
+});
+
+/* ---------- aba Usuários (administrador) ---------- */
+async function carregarUsuarios(){
+  if(!sb || !ehAdmin) return;
+  const [p, m] = await Promise.all([
+    sb.from("solicitacoes").select("email,nome,status,criado_em").order("criado_em", {ascending:false}),
+    sb.from("membros").select("email,nome,admin,criado_em").order("nome")
+  ]);
+  if(p.error || m.error){ const e = erroBanco(p.error || m.error); if(e.code!=="offline") toast("Erro ao carregar usuários: "+e.message); return; }
+  pedidos = p.data || []; membros = m.data || [];
+  renderUsuarios();
+}
+function inicial(n){ return (String(n||"?").trim()[0]||"?").toUpperCase(); }
+function dataHora(iso){ if(!iso) return ""; const d=new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("pt-BR")+" às "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
+function renderUsuarios(){
+  const pend = pedidos.filter(p=>p.status==="pendente"), rec = pedidos.filter(p=>p.status==="recusado");
+  $("qtdPend").textContent = pend.length;
+  $("badgePend").textContent = pend.length; $("badgePend").hidden = !pend.length;
+  $("listaPend").innerHTML = pend.length ? pend.map(p=>
+    '<div class="pessoa"><span class="ava">'+esc(inicial(p.nome))+'</span><div class="quem"><b>'+esc(p.nome||"")+'</b><small>'+esc(p.email)+' · pediu em '+esc(dataHora(p.criado_em))+'</small></div>'+
+    '<div class="acoes"><button type="button" class="btn good" data-aprovar="'+esc(p.email)+'">Aprovar</button><button type="button" class="btn danger" data-recusar="'+esc(p.email)+'">Recusar</button></div></div>').join("")
+    : '<p class="vazio">Nenhum pedido aguardando.</p>';
+  const eu = String(usuario||"").toLowerCase();
+  $("listaMembros").innerHTML = membros.length ? membros.map(m=>{ const souEu = String(m.email).toLowerCase()===eu;
+    return '<div class="pessoa"><span class="ava">'+esc(inicial(m.nome||m.email))+'</span><div class="quem"><b>'+esc(m.nome||m.email)+(m.admin?'<span class="tag">Administrador</span>':'')+(souEu?'<span class="tag">Você</span>':'')+'</b><small>'+esc(m.email)+'</small></div>'+
+    (souEu ? '' : '<div class="acoes"><button type="button" class="btn sm" data-admin="'+esc(m.email)+'" data-valor="'+(!m.admin)+'">'+(m.admin?"Tirar administrador":"Tornar administrador")+'</button><button type="button" class="btn sm danger" data-remover="'+esc(m.email)+'">Remover acesso</button></div>')+'</div>'; }).join("")
+    : '<p class="vazio">Ninguém ainda.</p>';
+  $("cardRecusados").hidden = !rec.length;
+  $("listaRecusados").innerHTML = rec.map(p=>
+    '<div class="pessoa"><span class="ava">'+esc(inicial(p.nome))+'</span><div class="quem"><b>'+esc(p.nome||"")+'</b><small>'+esc(p.email)+'</small></div>'+
+    '<div class="acoes"><button type="button" class="btn sm" data-aprovar="'+esc(p.email)+'">Aprovar mesmo assim</button></div></div>').join("");
+}
+async function acaoUsuario(fn, args, msgOk){
+  const {error} = await sb.rpc(fn, args);
+  if(error){ const e = erroBanco(error); toast(e.code==="offline" ? msgErro(e,"") : (e.message || "Não foi possível concluir.")); return false; }
+  toast(msgOk); await carregarUsuarios(); return true;
+}
+$("v-usuarios").addEventListener("click", async e=>{
+  const b = e.target.closest("button"); if(!b || !sb) return;
+  if(b.dataset.aprovar){ b.disabled = true; await acaoUsuario("aprovar_usuario", {p_email:b.dataset.aprovar, p_admin:false}, "Acesso liberado para "+b.dataset.aprovar); b.disabled = false; }
+  else if(b.dataset.recusar){ if(await confirmar("Recusar o pedido de "+b.dataset.recusar+"? A pessoa não vai conseguir ver as vendas.", "Recusar pedido?", "Recusar")) await acaoUsuario("recusar_usuario", {p_email:b.dataset.recusar}, "Pedido recusado"); }
+  else if(b.dataset.remover){ if(await confirmar("Remover o acesso de "+b.dataset.remover+"? A pessoa deixa de ver as vendas na hora.", "Remover acesso?", "Remover")) await acaoUsuario("remover_usuario", {p_email:b.dataset.remover}, "Acesso removido"); }
+  else if(b.dataset.admin){ const v = b.dataset.valor==="true"; await acaoUsuario("definir_admin", {p_email:b.dataset.admin, p_admin:v}, v ? "Agora é administrador" : "Deixou de ser administrador"); }
 });
 
 /* ---------- enviar vendas antigas do aparelho para o banco ---------- */

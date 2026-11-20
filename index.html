@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=9">
+<link rel="manifest" href="manifest.json?v=10">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -33,7 +33,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -58,6 +58,7 @@
     <a href="#nova" data-v="nova"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nova venda</span></a>
     <a href="#vendas" data-v="vendas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg><span>Vendas<span class="lg"> e impostos</span></span></a>
     <a href="#aliquotas" data-v="aliquotas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5L5 19M7.5 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm9 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><span>Alíquotas</span></a>
+    <a href="#usuarios" data-v="usuarios" id="navUsuarios" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 19v-1a4 4 0 00-4-4H7a4 4 0 00-4 4v1M9.5 10a3 3 0 100-6 3 3 0 000 6zM21 19v-1a4 4 0 00-3-3.87M15.5 4.13a3 3 0 010 5.74"/></svg><span>Usuários</span><b class="badge" id="badgePend" hidden></b></a>
   </nav>
 </header>
 
@@ -156,6 +157,22 @@
     <div class="actions"><button class="btn primary" id="bCfg" type="button">SALVAR ALÍQUOTAS</button><button class="btn" id="bCfgPadrao" type="button">Voltar ao padrão da planilha</button></div>
   </div>
 </section>
+<!-- ============ USUÁRIOS (só administrador) ============ -->
+<section class="view" id="v-usuarios">
+  <div class="card">
+    <h2>Pedidos de acesso <span class="pill" id="qtdPend">0</span></h2>
+    <p class="note" style="margin-top:0">Quem tocou em "Criar conta" aparece aqui. Só depois de aprovado a pessoa vê e salva vendas.</p>
+    <div id="listaPend"></div>
+  </div>
+  <div class="card">
+    <h2>Quem tem acesso</h2>
+    <div id="listaMembros"></div>
+  </div>
+  <div class="card" id="cardRecusados" hidden>
+    <h2>Recusados</h2>
+    <div id="listaRecusados"></div>
+  </div>
+</section>
 </main>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
@@ -168,12 +185,16 @@
     <img src="icons/logo-trix.png" alt="Trix Motors" width="200" height="168">
     <h2 id="loginTitulo">Entrar</h2>
     <p class="hint" id="loginSub">Use o e-mail e a senha cadastrados pelo administrador.</p>
+    <div class="f s6" id="campoNome" hidden><label for="lNome">Seu nome</label><input id="lNome" autocomplete="name"></div>
     <div class="f s6" id="campoEmail"><label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="username" inputmode="email"></div>
     <div class="f s6" id="campoSenha"><label for="lSenha">Senha</label><input id="lSenha" type="password" autocomplete="current-password"></div>
     <div class="f s6" id="campoNova" hidden><label for="lNova">Nova senha (mínimo 6 caracteres)</label><input id="lNova" type="password" autocomplete="new-password"></div>
     <p class="hint err" id="loginErr" role="alert"></p>
     <button type="submit" class="btn primary" id="bEntrar">ENTRAR</button>
+    <button type="button" class="btn" id="bVerificar" hidden>Verificar de novo</button>
     <button type="button" class="btn link" id="bEsqueci">Esqueci minha senha</button>
+    <p class="login-troca" id="trocaCriar">Não tem conta? <button type="button" class="btn link" id="bIrCriar">Criar conta</button></p>
+    <p class="login-troca" id="trocaEntrar" hidden>Já tem conta? <button type="button" class="btn link" id="bIrEntrar">Entrar</button></p>
     <button type="button" class="btn link" id="bLoginSair" hidden>Sair e usar outra conta</button>
   </form>
 </div>
@@ -182,11 +203,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=9"></script>
-<script src="lib/supabase.js?v=9"></script>
-<script src="lib/jspdf.umd.min.js?v=9"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=9"></script>
-<script src="pdf.js?v=9"></script>
-<script src="script.js?v=9"></script>
+<script src="config.js?v=10"></script>
+<script src="lib/supabase.js?v=10"></script>
+<script src="lib/jspdf.umd.min.js?v=10"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=10"></script>
+<script src="pdf.js?v=10"></script>
+<script src="script.js?v=10"></script>
 </body>
 </html>
