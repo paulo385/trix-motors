@@ -57,6 +57,7 @@ let cfg = {...PADRAO};
 let vendas = [];
 let fechamentos = {};
 let db = null, modo = "conectando";
+let sb = null, usuario = null, ehAdmin = false, canal = null;
 let empresa = null;
 let editId = null;
 let ultimo = null; // último cálculo válido do formulário
@@ -69,33 +70,94 @@ function lsSalvarTudo(){ lsGravar({vendas, fechamentos, cfg}); }
 
 function setStatus(){
   const el = $("status");
-  const m = {conectando:["","Conectando…"], nuvem:["ok","Salvo na nuvem"], local:["local","Salvando só neste navegador"]}[modo];
+  const m = {conectando:["","Conectando…"], nuvem:["ok","Salvo na nuvem"], local:["local","Salvando só neste navegador"],
+    banco:["ok", usuario ? "Banco de dados · "+usuario : "Banco de dados"], offline:["local","Sem conexão com o banco"]}[modo] || ["",""];
   el.innerHTML = '<span class="dot '+m[0]+'"></span><span>'+m[1]+'</span>';
 }
 const novoId = () => "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
+/* ---------- banco de dados Supabase ---------- */
+function erroBanco(e){
+  const msg = String((e && (e.message || e.error_description)) || e || "");
+  if(e && (e.code==="42501" || /row-level security|permission denied/i.test(msg))) return {code:"sem_permissao", message:msg};
+  if(/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return {code:"offline", message:msg};
+  return {code:(e && e.code) || "erro", message:msg};
+}
+function msgErro(err, padrao){
+  if(err && err.code==="sem_permissao") return "Seu usuário não tem permissão para isso. Fale com o administrador.";
+  if(err && err.code==="offline") return "Sem internet. Nada foi salvo; tente de novo quando a conexão voltar.";
+  if(err && err.code==="quota_exceeded") return "Limite de registros atingido. Exclua vendas antigas.";
+  return padrao;
+}
+function linhaVenda(o){
+  return {id:o.id, empresa:o.empresa, data_venda:(o.valores && o.valores.dataVenda) || null, placa:(o.veiculo && o.veiculo.placa) || null, doc:o, atualizado_em:new Date().toISOString()};
+}
+async function sbUpsert(tabela, linhas, opcoes){
+  const {error} = await sb.from(tabela).upsert(linhas, opcoes);
+  if(error) throw erroBanco(error);
+}
+async function sbTudo(tabela){
+  const out = [];
+  for(let de=0; ; de+=1000){
+    const {data, error} = await sb.from(tabela).select("id,doc").order("id").range(de, de+999);
+    if(error) throw erroBanco(error);
+    out.push(...(data||[]));
+    if(!data || data.length < 1000) break;
+  }
+  return out;
+}
+async function carregarBanco(){
+  const [vs, fs, cs] = await Promise.all([sbTudo("vendas"), sbTudo("fechamentos"), sbTudo("config")]);
+  vendas = vs.map(r=>({...r.doc, id:r.id}));
+  const f = {}; fs.forEach(r=>{ f[r.id] = r.doc; }); fechamentos = f;
+  const c = cs.find(r=>r.id==="aliquotas"); cfg = {...PADRAO, ...(c ? c.doc : {})};
+  if(modo==="offline"){ modo="banco"; }
+  renderTudo();
+}
+let tRecarga = null;
+function agendarRecarga(){
+  clearTimeout(tRecarga);
+  tRecarga = setTimeout(()=>{ if(sb && usuario) carregarBanco().catch(err=>{ if(err.code==="offline"){ modo="offline"; setStatus(); } }); }, 400);
+}
+function assinarMudancas(){
+  if(canal || !sb.channel) return;
+  try{
+    canal = sb.channel("trix-mudancas")
+      .on("postgres_changes", {event:"*", schema:"public", table:"vendas"}, agendarRecarga)
+      .on("postgres_changes", {event:"*", schema:"public", table:"fechamentos"}, agendarRecarga)
+      .on("postgres_changes", {event:"*", schema:"public", table:"config"}, agendarRecarga)
+      .subscribe();
+  }catch(e){ canal = null; }
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && modo!=="local" && sb && usuario) agendarRecarga(); });
+
 async function salvarVenda(obj){
-  if(modo==="nuvem"){ await db.collection("vendas").doc(obj.id).set(obj); }
+  if(modo==="banco" || modo==="offline"){ await sbUpsert("vendas", linhaVenda(obj)); const i=vendas.findIndex(v=>v.id===obj.id); if(i>=0) vendas[i]=obj; else vendas.push(obj); renderTudo(); }
+  else if(modo==="nuvem"){ await db.collection("vendas").doc(obj.id).set(obj); }
   else { const i = vendas.findIndex(v=>v.id===obj.id); if(i>=0) vendas[i]=obj; else vendas.push(obj); lsSalvarTudo(); renderTudo(); }
 }
 async function excluirVenda(id){
-  if(modo==="nuvem"){ await db.collection("vendas").doc(id).delete(); }
+  if(modo==="banco" || modo==="offline"){ const {error} = await sb.from("vendas").delete().eq("id", id); if(error) throw erroBanco(error); vendas = vendas.filter(v=>v.id!==id); renderTudo(); }
+  else if(modo==="nuvem"){ await db.collection("vendas").doc(id).delete(); }
   else { vendas = vendas.filter(v=>v.id!==id); lsSalvarTudo(); renderTudo(); }
 }
 async function salvarCfg(novo){
-  if(modo==="nuvem"){ await db.doc("config/aliquotas").set(novo); }
+  if(modo==="banco" || modo==="offline"){ await sbUpsert("config", {id:"aliquotas", doc:novo, atualizado_em:new Date().toISOString()}); cfg = {...PADRAO,...novo}; renderTudo(); }
+  else if(modo==="nuvem"){ await db.doc("config/aliquotas").set(novo); }
   else { cfg = {...PADRAO,...novo}; lsSalvarTudo(); renderTudo(); }
 }
 async function salvarFech(id, obj){
-  if(modo==="nuvem"){ await db.collection("fechamentos").doc(id).set(obj); }
+  if(modo==="banco" || modo==="offline"){ await sbUpsert("fechamentos", {id, doc:obj, atualizado_em:new Date().toISOString()}); fechamentos[id]=obj; renderTudo(); }
+  else if(modo==="nuvem"){ await db.collection("fechamentos").doc(id).set(obj); }
   else { fechamentos[id]=obj; lsSalvarTudo(); renderTudo(); }
 }
 
 /* ---------- toast / modal ---------- */
 let tT;
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("on"),2600); }
-function confirmar(texto){
+function confirmar(texto, titulo, botao){
   return new Promise(res=>{
+    $("mTitle").textContent = titulo || "Excluir venda?"; $("mOk").textContent = botao || "Excluir";
     $("mText").textContent = texto; $("modal").classList.add("on"); $("mCancel").focus();
     const fim = r => { $("modal").classList.remove("on"); $("mOk").onclick=$("mCancel").onclick=null; res(r); };
     $("mOk").onclick = ()=>fim(true); $("mCancel").onclick = ()=>fim(false);
@@ -211,7 +273,7 @@ $("bSalvar").addEventListener("click", async ()=>{
   const obj = {id: editId||novoId(), empresa, ...f, aliq: ultimo.aliq, criadoEm: antigo?.criadoEm || new Date().toISOString(), atualizadoEm:new Date().toISOString()};
   $("bSalvar").disabled = true;
   try{ await salvarVenda(obj); toast(editId?"Venda atualizada":"Venda salva em "+empresa); limpar(); }
-  catch(err){ $("bSalvar").disabled=false; $("formErr").textContent = err && err.code==="quota_exceeded" ? "Limite de registros atingido. Exclua vendas antigas." : "Não foi possível salvar agora. Tente de novo em instantes."; }
+  catch(err){ $("bSalvar").disabled=false; $("formErr").textContent = msgErro(err, "Não foi possível salvar agora. Tente de novo em instantes."); }
 });
 $("bLimpar").addEventListener("click", limpar);
 $("bExemplo").addEventListener("click", ()=>{
@@ -338,7 +400,7 @@ function renderVendas(){
   $("bConf").onclick = async ()=>{
     const irpj=parseBRL($("pgIrpj").value), csll=parseBRL($("pgCsll").value);
     try{ await salvarFech(fid, {empresa, trimestre:tri, irpj:isNaN(irpj)?null:irpj, csll:isNaN(csll)?null:csll, pagoEm:$("pgData").value||""}); toast("Conferência salva"); }
-    catch(e){ toast("Não foi possível salvar agora"); }
+    catch(e){ toast(msgErro(e, "Não foi possível salvar agora")); }
   };
 
   function tile(l,v){ return '<div class="tile"><div class="lbl">'+l+'</div><div class="v num">'+v+'</div></div>'; }
@@ -353,7 +415,7 @@ $("tbVendas").addEventListener("click", async e=>{
     $("bSalvar").textContent="Salvar alterações"; location.hash="#nova"; $("form").requestSubmit(); }
   if(del){ const v = vendas.find(x=>x.id===del.dataset.del); if(!v) return;
     if(await confirmar("A venda do "+(v.veiculo?.modelo||"veículo")+" placa "+(v.veiculo?.placa||"")+" será apagada do histórico.")){
-      try{ await excluirVenda(v.id); toast("Venda excluída"); }catch(err){ toast("Não foi possível excluir agora"); } } }
+      try{ await excluirVenda(v.id); toast("Venda excluída"); }catch(err){ toast(msgErro(err, "Não foi possível excluir agora")); } } }
 });
 
 /* ---------- PDF ---------- */
@@ -431,7 +493,7 @@ $("bCfg").addEventListener("click", async ()=>{
     if(k==="empresas"){ if(!raw.split(",").map(s=>s.trim()).filter(Boolean).length) erro="Informe ao menos uma empresa."; novo[k]=raw; continue; }
     const n=parseBRL(raw); if(isNaN(n)||n<0){ erro="Confira o campo "+l+"."; break; } novo[k]= pct ? n/100 : n; }
   if(erro){ toast(erro); return; }
-  try{ await salvarCfg(novo); toast("Alíquotas salvas"); }catch(e){ toast("Só o dono da página pode alterar as alíquotas"); }
+  try{ await salvarCfg(novo); toast("Alíquotas salvas"); }catch(e){ toast(e && e.code==="offline" ? msgErro(e,"") : "Só o administrador pode alterar as alíquotas"); }
 });
 $("bCfgPadrao").addEventListener("click", ()=>{ const keep=cfg.empresas; cfg={...PADRAO, empresas:keep}; renderCfg(); toast("Valores da planilha carregados. Aperte Salvar para gravar."); });
 
@@ -445,10 +507,145 @@ function renderTudo(){
 /* ---------- inicialização ---------- */
 limpar(); rota(); renderTudo();
 
+/* ---------- login (Supabase) ---------- */
+let telaLogin = "entrar";
+const recuperandoSenha = /type=recovery/.test(location.hash);
+function mostrarLogin(tela, info){
+  telaLogin = tela;
+  const L = {
+    entrar: ["Entrar", "Use o e-mail e a senha cadastrados pelo administrador.", "ENTRAR"],
+    nova:   ["Criar nova senha", "Digite a nova senha para a sua conta.", "SALVAR SENHA"],
+    negado: ["Acesso não liberado", "O e-mail "+(info||"")+" entrou, mas não está na lista de usuários do app. Peça ao administrador para incluir.", ""]
+  }[tela];
+  $("loginTitulo").textContent = L[0]; $("loginSub").textContent = L[1];
+  $("campoEmail").hidden = tela!=="entrar"; $("campoSenha").hidden = tela!=="entrar"; $("campoNova").hidden = tela!=="nova";
+  $("bEntrar").hidden = tela==="negado"; $("bEntrar").textContent = L[2]; $("bEntrar").disabled = false;
+  $("bEsqueci").hidden = tela!=="entrar"; $("bLoginSair").hidden = tela!=="negado";
+  $("loginErr").textContent = ""; $("loginErr").classList.add("err");
+  $("login").hidden = false;
+  setTimeout(()=>{ const alvo = tela==="nova" ? $("lNova") : ($("lEmail").value ? $("lSenha") : $("lEmail")); if(alvo && !alvo.closest("[hidden]")) alvo.focus(); }, 50);
+}
+function avisoLogin(msg, ok){ $("loginErr").textContent = msg; $("loginErr").classList.toggle("err", !ok); }
+function msgLogin(error){
+  const m = String((error && error.message) || "");
+  if(/invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
+  if(/email not confirmed/i.test(m)) return "Este e-mail ainda não foi confirmado. Confira sua caixa de entrada.";
+  if(/failed to fetch|network/i.test(m)) return "Sem internet. Confira a conexão e tente de novo.";
+  if(/password should be at least|weak/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  if(/rate limit|too many/i.test(m)) return "Muitas tentativas. Espere alguns minutos e tente de novo.";
+  return "Não foi possível entrar: " + m;
+}
+function pararBanco(){
+  if(canal && sb){ try{ sb.removeChannel(canal); }catch(e){} }
+  canal = null; usuario = null; ehAdmin = false;
+  vendas = []; fechamentos = {}; cfg = {...PADRAO};
+  $("bSair").hidden = true; $("migrar").hidden = true;
+  renderTudo();
+}
+async function entrarNoApp(session){
+  usuario = session.user.email; setStatus();
+  const {data, error} = await sb.from("membros").select("email,nome,admin").limit(1);
+  if(error){
+    const e = erroBanco(error);
+    if(e.code==="offline"){ $("login").hidden = true; modo="offline"; $("bSair").hidden=false; setStatus(); toast("Sem internet. As vendas aparecem quando a conexão voltar."); return; }
+    mostrarLogin("entrar"); avisoLogin("Erro ao abrir o banco: " + e.message); return;
+  }
+  if(!data || !data.length){ mostrarLogin("negado", usuario); return; }
+  ehAdmin = !!data[0].admin;
+  $("login").hidden = true; $("bSair").hidden = false; modo = "banco"; setStatus();
+  try{ await carregarBanco(); }catch(e){ if(e.code==="offline"){ modo="offline"; setStatus(); } else toast("Erro ao carregar as vendas: " + e.message); }
+  assinarMudancas();
+  verificarMigracao();
+}
+async function iniciarBanco(){
+  const C = window.TRIX_CONFIG || {};
+  if(!C.supabaseUrl || !C.supabaseKey || !window.supabase || !window.supabase.createClient) return false;
+  try{
+    sb = window.supabase.createClient(C.supabaseUrl.trim(), C.supabaseKey.trim(), {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}});
+  }catch(e){ console.error(e); return false; }
+  modo = "banco"; setStatus();
+  sb.auth.onAuthStateChange((evento)=>{
+    if(evento==="PASSWORD_RECOVERY"){ mostrarLogin("nova"); }
+    else if(evento==="SIGNED_OUT"){ pararBanco(); mostrarLogin("entrar"); }
+  });
+  const {data} = await sb.auth.getSession();
+  if(recuperandoSenha){ mostrarLogin("nova"); }
+  else if(data && data.session){ await entrarNoApp(data.session); }
+  else { mostrarLogin("entrar"); }
+  return true;
+}
+$("loginForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  if(!sb) return;
+  if(telaLogin==="entrar"){
+    const email = $("lEmail").value.trim(), senha = $("lSenha").value;
+    if(!email || !senha){ avisoLogin("Preencha o e-mail e a senha."); return; }
+    $("bEntrar").disabled = true; avisoLogin("Entrando…", true);
+    const {data, error} = await sb.auth.signInWithPassword({email, password:senha});
+    $("bEntrar").disabled = false;
+    if(error){ avisoLogin(msgLogin(error)); return; }
+    $("lSenha").value = "";
+    await entrarNoApp(data.session);
+  } else if(telaLogin==="nova"){
+    const nova = $("lNova").value;
+    if(nova.length < 6){ avisoLogin("A senha precisa ter pelo menos 6 caracteres."); return; }
+    $("bEntrar").disabled = true;
+    const {error} = await sb.auth.updateUser({password:nova});
+    $("bEntrar").disabled = false;
+    if(error){ avisoLogin(msgLogin(error)); return; }
+    $("lNova").value = "";
+    try{ history.replaceState(null, "", location.pathname + "#nova"); }catch(err){}
+    rota(); toast("Senha alterada");
+    const {data} = await sb.auth.getSession();
+    if(data && data.session) await entrarNoApp(data.session); else mostrarLogin("entrar");
+  }
+});
+$("bEsqueci").addEventListener("click", async ()=>{
+  const email = $("lEmail").value.trim();
+  if(!email){ avisoLogin("Digite seu e-mail acima e toque de novo em \"Esqueci minha senha\"."); $("lEmail").focus(); return; }
+  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+  if(error) avisoLogin(msgLogin(error));
+  else avisoLogin("Se esse e-mail estiver cadastrado, enviamos um link para criar uma nova senha.", true);
+});
+$("bLoginSair").addEventListener("click", ()=>{ sb && sb.auth.signOut(); });
+$("bSair").addEventListener("click", async ()=>{
+  if(!sb) return;
+  if(await confirmar("Sair da conta "+(usuario||"")+" neste aparelho?", "Sair da conta?", "Sair")) sb.auth.signOut();
+});
+
+/* ---------- enviar vendas antigas do aparelho para o banco ---------- */
+let pendentesLocais = null;
+function verificarMigracao(){
+  const o = lsLer(); const n = (o.vendas||[]).length;
+  let feito = false; try{ feito = localStorage.getItem(LS+"-migrado")==="1"; }catch(e){}
+  if(!n || feito){ $("migrar").hidden = true; return; }
+  pendentesLocais = o;
+  $("migrarTxt").innerHTML = "Este aparelho tem <b>"+n+" venda"+(n>1?"s":"")+"</b> salva"+(n>1?"s":"")+" só nele, de antes do banco de dados. Quer enviar para o banco, para todos verem?";
+  $("migrar").hidden = false;
+}
+$("bMigrar").addEventListener("click", async ()=>{
+  if(!pendentesLocais) return;
+  $("bMigrar").disabled = true;
+  try{
+    const vs = (pendentesLocais.vendas||[]).filter(v=>v && v.id && v.valores);
+    if(vs.length) await sbUpsert("vendas", vs.map(linhaVenda), {onConflict:"id", ignoreDuplicates:true});
+    const fs = Object.entries(pendentesLocais.fechamentos||{}).map(([id,doc])=>({id, doc, atualizado_em:new Date().toISOString()}));
+    if(fs.length) await sbUpsert("fechamentos", fs, {onConflict:"id", ignoreDuplicates:true});
+    try{ localStorage.setItem(LS+"-migrado","1"); }catch(e){}
+    $("migrar").hidden = true; toast(vs.length+" venda"+(vs.length>1?"s":"")+" enviada"+(vs.length>1?"s":"")+" para o banco");
+    await carregarBanco();
+  }catch(e){ toast(msgErro(e, "Não foi possível enviar agora: "+(e.message||""))); }
+  $("bMigrar").disabled = false;
+});
+$("bMigrarNao").addEventListener("click", ()=>{ $("migrar").hidden = true; });
+
 (async function conectar(){
   let ns = null;
   try{ ns = window.claude && window.claude.use ? await window.claude.use("db") : null; }catch(e){ ns=null; }
-  if(!ns){ modo="local"; lsCarregar(); renderTudo(); return; }
+  if(!ns){
+    if(await iniciarBanco().catch(e=>{ console.error(e); return false; })) return;
+    modo="local"; lsCarregar(); renderTudo(); return;
+  }
   db = ns; modo="nuvem"; setStatus();
   const timer = setTimeout(()=>{ const s=$("status"); s.innerHTML='<span class="dot local"></span><span>Sem conexão com a nuvem ainda</span>'; }, 10000);
   const fail = err => { clearTimeout(timer); if(err && err.code==="revoked"){ modo="local"; lsCarregar(); } renderTudo(); };

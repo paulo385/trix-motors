@@ -1,16 +1,18 @@
 /* Service worker: deixa o app abrir rápido e funcionar sem internet.
    Busca sempre a versão nova quando há internet; sem internet, usa a cópia guardada.
    Ao publicar mudanças, aumente VERSAO aqui e o ?v= no index.html. */
-const VERSAO = "trix-v4";
+const VERSAO = "trix-v5";
 const ARQUIVOS = [
   "./",
   "./index.html",
-  "./style.css?v=4",
-  "./script.js?v=4",
-  "./pdf.js?v=4",
-  "./manifest.json?v=4",
-  "./lib/jspdf.umd.min.js?v=4",
-  "./lib/jspdf.plugin.autotable.min.js?v=4",
+  "./style.css?v=5",
+  "./config.js?v=5",
+  "./lib/supabase.js?v=5",
+  "./script.js?v=5",
+  "./pdf.js?v=5",
+  "./manifest.json?v=5",
+  "./lib/jspdf.umd.min.js?v=5",
+  "./lib/jspdf.plugin.autotable.min.js?v=5",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",

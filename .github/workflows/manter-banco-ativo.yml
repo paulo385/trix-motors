@@ -1,0 +1,30 @@
+# O Supabase grátis pausa o banco depois de 7 dias sem uso.
+# Esta rotina faz uma consulta leve a cada 3 dias para isso não acontecer
+# (por exemplo, em férias ou feriados longos). Não lê nenhum dado.
+name: Manter banco ativo
+
+on:
+  schedule:
+    - cron: "37 11 */3 * *"   # a cada 3 dias, 08:37 de Brasília
+  workflow_dispatch:           # permite rodar na mão em Actions → Run workflow
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consultar o banco
+        run: |
+          URL=$(grep -oP 'supabaseUrl:\s*"\K[^"]*' config.js || true)
+          KEY=$(grep -oP 'supabaseKey:\s*"\K[^"]*' config.js || true)
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "Banco ainda não configurado no config.js. Nada a fazer."
+            exit 0
+          fi
+          curl -fsS -X POST "${URL%/}/rest/v1/rpc/ping" \
+            -H "apikey: $KEY" -H "Content-Type: application/json" -d '{}'
+          echo
+          echo "Banco consultado com sucesso."

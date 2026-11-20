@@ -9,6 +9,9 @@ Site em HTML, CSS e JavaScript puro, sem framework, para cadastrar vendas de ve�
 | `index.html` | Estrutura das telas (formulários, abas, tabelas) |
 | `style.css` | Visual: cores, fontes, layout, tema claro e escuro |
 | `script.js` | Cálculo dos impostos, validações (CPF, placa, Renavam), histórico e fechamento |
+| `config.js` | Endereço e chave pública do banco de dados (Supabase). Em branco = vendas só no aparelho |
+| `supabase/setup.sql` | Script que cria as tabelas e as regras de acesso no Supabase |
+| `.github/workflows/manter-banco-ativo.yml` | Rotina do GitHub que evita a pausa do banco grátis |
 | `pdf.js` | Monta os PDFs: relatório do trimestre e resumo de cada venda |
 | `manifest.json` | Nome, ícone e cores do app quando instalado no celular |
 | `sw.js` | Faz o app abrir rápido e funcionar sem internet. Ao mudar qualquer arquivo, aumente a `VERSAO` dentro dele e o `?v=` no index.html |
@@ -46,11 +49,41 @@ Depois de instalado, ele abre em tela cheia, com ícone próprio, e funciona mes
 - **Relatório do trimestre:** na aba *Vendas e fechamento*, escolha o trimestre e aperte **RELATÓRIO PDF**. Sai a lista de vendas da empresa selecionada, os impostos de cada uma, o fechamento de IRPJ/CSLL e PIS/COFINS/ICMS com vencimentos e a conferência com o DARF pago.
 - **PDF de uma venda:** aperte **PDF** na linha da venda, ou **Gerar PDF desta venda** logo depois de calcular. Sai a ficha do cliente e do veículo, os impostos e o resultado. É documento interno, não é nota fiscal.
 
+## Banco de dados (Supabase, grátis)
+
+Com o banco ligado, cada pessoa entra com e-mail e senha, e **todos os aparelhos veem as mesmas vendas**, atualizadas ao vivo.
+
+### Configurar (uma vez só)
+
+1. Crie uma conta em **supabase.com** e clique em **New project**. Nome: `trix-motors`. Região: **South America (São Paulo)**. Anote a senha do banco.
+2. Abra **SQL Editor** → **New query**, cole todo o conteúdo de `supabase/setup.sql` e troque `seu-email@exemplo.com` pelo seu e-mail real. Clique em **Run**.
+3. Em **Authentication → Users → Add user → Create new user**, crie o seu usuário (o mesmo e-mail) com uma senha e marque **Auto Confirm User**. Repita para cada vendedor.
+4. Em **Authentication → Sign In / Providers**, desligue **Allow new users to sign up**, para ninguém criar conta sozinho.
+5. Em **Authentication → URL Configuration**, coloque em **Site URL**: `https://paulo385.github.io/trix-motors/` (usado no "Esqueci minha senha").
+6. Em **Project Settings → API Keys**, copie o **Project URL** e a chave **publishable** (ou **anon public**) e coloque no `config.js`.
+
+Nunca use a chave **secret** / **service_role** no `config.js`: ele fica público.
+
+### Incluir um vendedor novo
+
+1. **Authentication → Users → Add user**: e-mail e senha, com **Auto Confirm User**.
+2. **Table Editor → membros → Insert row**: o mesmo e-mail, nome e `admin` = false.
+
+Só quem está na tabela `membros` vê as vendas, mesmo que tenha uma conta. Quem tem `admin` = true também pode mudar as alíquotas.
+
+### Ver e exportar as vendas pelo Supabase
+
+**Table Editor → vendas** mostra todas as vendas. O botão **Export → CSV** baixa tudo.
+
+### Pausa do plano grátis
+
+O Supabase grátis pausa o banco depois de 7 dias sem uso. A rotina `manter-banco-ativo` do GitHub consulta o banco a cada 3 dias para evitar isso. Se mesmo assim pausar, entre no supabase.com e clique em **Restore project**. Os dados não se perdem.
+
 ## Onde os dados ficam
 
-- **Na página publicada no Claude:** as vendas ficam salvas na nuvem e todos com acesso veem o mesmo histórico.
-- **Fora do Claude (este arquivo):** as vendas ficam salvas **só no navegador de quem está usando**. O topo da página mostra "Salvando só neste navegador". Se limpar os dados do navegador, as vendas se perdem.
-- Para várias pessoas usarem o mesmo histórico fora do Claude, um desenvolvedor precisa ligar o site a um banco de dados (por exemplo Supabase ou Firebase). No código, as funções `salvarVenda`, `excluirVenda`, `salvarCfg` e `salvarFech` são os únicos pontos que precisam mudar.
+- **Com o banco configurado:** no Supabase. Cada pessoa entra com sua conta; ao sair, as vendas somem da tela daquele aparelho.
+- **Sem banco (config.js em branco):** só no navegador de quem está usando.
+- **Vendas antigas do aparelho:** depois de configurar o banco, o app oferece **Enviar para o banco** as vendas que estavam salvas só no aparelho.
 
 ## Cálculo usado
 

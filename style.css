@@ -226,3 +226,24 @@ header.top{padding-top:env(safe-area-inset-top)}
 @media (display-mode: standalone){
   .install{display:none!important}
 }
+
+/* ===================== Login e banco de dados ===================== */
+.sair{background:transparent;color:var(--header-ink);border-color:rgba(255,255,255,.25)}
+.sair[hidden]{display:none}
+.login{position:fixed;inset:0;z-index:60;background:#16181c;display:flex;align-items:center;justify-content:center;padding:24px max(16px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom))}
+.login[hidden]{display:none}
+.login-card{background:var(--surface);color:var(--ink);border-radius:16px;padding:28px 24px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.login-card img{width:150px;height:auto;align-self:center;margin-bottom:4px;background:#16181c;border-radius:12px;padding:14px 18px;box-sizing:content-box}
+.login-card h2{font-size:1.5rem;text-align:center}
+.login-card .hint{text-align:center;margin:0}
+.login-card .f[hidden]{display:none}
+.login-card .btn.primary{width:100%;margin-top:4px}
+.login-card .btn.link{align-self:center}
+.login-card .btn.link[hidden]{display:none}
+.migrar{margin-bottom:16px;border-left:4px solid var(--accent)}
+.migrar[hidden]{display:none}
+.migrar p{margin:0}
+.migrar .actions{margin-top:12px}
+@media (max-width:720px){
+  .sair{order:2}
+}
