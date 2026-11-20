@@ -1,7 +1,7 @@
 (function(){
 "use strict";
 const $ = id => document.getElementById(id);
-const PADRAO = {irpjPres:0.08, irpj:0.15, csllPres:0.12, csll:0.09, pis:0.0065, cofins:0.03, icmsBase:0.05, icms:0.195, adicLimite:60000, adic:0.10, empresas:"TRIX, TRX"};
+const PADRAO = {irpjPres:0.08, irpj:0.15, csllPres:0.12, csll:0.09, pis:0.0065, cofins:0.03, icmsBase:0.05, icms:0.195, adicLimite:60000, adic:0.10, empresas:"TRIX"};
 const CFG_META = [
   ["irpjPres","Presunção IRPJ (% do lucro)",true],["irpj","Alíquota IRPJ",true],
   ["csllPres","Presunção CSLL (% do lucro)",true],["csll","Alíquota CSLL",true],
@@ -73,6 +73,7 @@ function setStatus(){
   const m = {conectando:["","Conectando…"], nuvem:["ok","Salvo na nuvem"], local:["local","Salvando só neste navegador"],
     banco:["ok", usuario ? "Banco de dados · "+usuario : "Banco de dados"], offline:["local","Sem conexão com o banco"]}[modo] || ["",""];
   el.innerHTML = '<span class="dot '+m[0]+'"></span><span>'+m[1]+'</span>';
+  el.hidden = (modo==="banco" || modo==="nuvem");   // tudo certo: não mostra nada
 }
 const novoId = () => "v" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
@@ -172,6 +173,7 @@ function renderEmpresas(){
     let salvo=null; try{ salvo = localStorage.getItem(LS+"-empresa"); }catch(e){}
     empresa = lista.includes(salvo) ? salvo : lista[0];
   }
+  $("boxEmpresa").hidden = lista.length < 2;
   $("segEmpresa").innerHTML = lista.map(e=>'<button type="button" aria-pressed="'+(e===empresa)+'">'+esc(e)+'</button>').join("");
   [...$("segEmpresa").children].forEach(b=>b.onclick=()=>{ empresa=b.textContent; try{localStorage.setItem(LS+"-empresa",empresa);}catch(e){} renderTudo(); });
 }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=6">
+<link rel="manifest" href="manifest.json?v=7">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -33,7 +33,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -47,7 +47,7 @@
         <small>Venda e impostos · IRPJ, CSLL, PIS, COFINS e ICMS</small>
       </div>
     </div>
-    <div class="empresa">Empresa <div class="seg" id="segEmpresa" role="group" aria-label="Empresa"></div></div>
+    <div class="empresa" id="boxEmpresa">Empresa <div class="seg" id="segEmpresa" role="group" aria-label="Empresa"></div></div>
     <div class="status" id="status"><span class="dot"></span><span>Conectando…</span></div>
     <button type="button" class="btn sm sair" id="bSair" hidden>Sair</button>
     <button type="button" class="btn sm install" id="bInstalar" hidden>
@@ -174,11 +174,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=6"></script>
-<script src="lib/supabase.js?v=6"></script>
-<script src="lib/jspdf.umd.min.js?v=6"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=6"></script>
-<script src="pdf.js?v=6"></script>
-<script src="script.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="lib/supabase.js?v=7"></script>
+<script src="lib/jspdf.umd.min.js?v=7"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=7"></script>
+<script src="pdf.js?v=7"></script>
+<script src="script.js?v=7"></script>
 </body>
 </html>
