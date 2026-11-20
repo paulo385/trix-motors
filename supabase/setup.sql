@@ -60,7 +60,17 @@ language sql stable security definer set search_path = public as $$
 $$;
 grant execute on function public.ping() to anon, authenticated;
 
--- 4) Regras de acesso (Row Level Security) ---------------------------------
+-- 4) Permissões da API (funciona com ou sem "Conceder acesso à API para novas tabelas")
+grant usage on schema public to anon, authenticated;
+grant select on public.membros to authenticated;
+grant select, insert, update, delete on public.vendas to authenticated;
+grant select, insert, update on public.fechamentos to authenticated;
+grant select, insert, update on public.config to authenticated;
+grant execute on function public.eh_membro() to authenticated;
+grant execute on function public.eh_admin() to authenticated;
+revoke all on public.membros, public.vendas, public.fechamentos, public.config from anon;
+
+-- 5) Regras de acesso (Row Level Security) ---------------------------------
 alter table public.membros     enable row level security;
 alter table public.vendas      enable row level security;
 alter table public.fechamentos enable row level security;
@@ -94,7 +104,7 @@ create policy "membros leem config" on public.config for select to authenticated
 create policy "admin grava config"  on public.config for insert to authenticated with check (public.eh_admin());
 create policy "admin altera config" on public.config for update to authenticated using (public.eh_admin()) with check (public.eh_admin());
 
--- 5) Atualização ao vivo entre aparelhos -----------------------------------
+-- 6) Atualização ao vivo entre aparelhos -----------------------------------
 do $$
 begin
   begin alter publication supabase_realtime add table public.vendas;      exception when others then null; end;
@@ -102,7 +112,7 @@ begin
   begin alter publication supabase_realtime add table public.config;      exception when others then null; end;
 end $$;
 
--- 6) CADASTRE AQUI QUEM PODE USAR O APP -------------------------------------
+-- 7) CADASTRE AQUI QUEM PODE USAR O APP -------------------------------------
 --    Troque pelos e-mails reais. Depois crie a senha de cada um em
 --    Authentication → Users → Add user (mesmo e-mail).
 --    admin = true pode alterar as alíquotas.
