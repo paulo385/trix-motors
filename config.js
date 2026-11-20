@@ -11,5 +11,5 @@
 window.TRIX_CONFIG = {
   supabaseUrl: "https://pupijwvgzzmejtdbwjob.supabase.co",
   supabaseKey: "sb_publishable_AAbLRekV3QbgL7TDstWv2w_IWhWOlF8",
-  canalPrivacidade: ""
+  canalPrivacidade: "guto.pands@gmail.com"
 };
