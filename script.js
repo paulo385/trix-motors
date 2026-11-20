@@ -1,8 +1,9 @@
 (function(){
 "use strict";
 const $ = id => document.getElementById(id);
-const PADRAO = {irpjPres:0.08, irpj:0.15, csllPres:0.12, csll:0.09, pis:0.0065, cofins:0.03, icmsBase:0.05, icms:0.195, adicLimite:60000, adic:0.10, empresas:"TRIX"};
+const PADRAO = {irpjPres:0.08, irpj:0.15, csllPres:0.12, csll:0.09, pis:0.0065, cofins:0.03, icmsBase:0.05, icms:0.195, adicLimite:60000, adic:0.10, comPct:0, comBase:"lucro", empresas:"TRIX"};
 const CFG_META = [
+  ["comPct","Comissão do vendedor (%)",true],["comBase","Comissão calculada sobre","sel"],
   ["irpjPres","Presunção IRPJ (% do lucro)",true],["irpj","Alíquota IRPJ",true],
   ["csllPres","Presunção CSLL (% do lucro)",true],["csll","Alíquota CSLL",true],
   ["pis","PIS (sobre o lucro)",true],["cofins","COFINS (sobre o lucro)",true],
@@ -34,7 +35,11 @@ const mesNome = k => { const [y,m]=k.split("-").map(Number); return MESES_NOME[m
 const triNome = t => { const [y,q]=t.split("-T"); const ms=[["jan","mar"],["abr","jun"],["jul","set"],["out","dez"]][q-1]; return q+"º trimestre "+y+" ("+ms[0]+"–"+ms[1]+")"; };
 
 /* ---------- cálculo (mesma lógica da aba IMPOSTO da planilha) ---------- */
-function calcular(compra, venda, custos, a){
+function comissaoAuto(compra, venda, a){
+  const pct = Number(a.comPct)||0; if(!pct) return 0;
+  return pct * (a.comBase==="venda" ? venda : Math.max(venda - compra, 0));
+}
+function calcular(compra, venda, custos, a, comissaoFixa){
   const lucro = venda - compra;
   const base = Math.max(lucro,0);
   const bcIrpj = base*a.irpjPres, irpj = bcIrpj*a.irpj;
@@ -42,16 +47,22 @@ function calcular(compra, venda, custos, a){
   const pis = base*a.pis, cofins = base*a.cofins;
   const bcIcms = venda*a.icmsBase, icms = bcIcms*a.icms;
   const total = irpj+csll+pis+cofins+icms;
-  const liquido = lucro - total;
+  const comissao = (comissaoFixa!=null && isFinite(comissaoFixa)) ? Number(comissaoFixa) : comissaoAuto(compra, venda, a);
+  const liquido = lucro - total - comissao;
   const real = liquido - (custos||0);
-  return {lucro, base, bcIrpj, irpj, bcCsll, csll, pis, cofins, bcIcms, icms, total, liquido, real, custos:custos||0,
+  return {lucro, base, bcIrpj, irpj, bcCsll, csll, pis, cofins, bcIcms, icms, total, comissao, liquido, real, custos:custos||0,
           pct: lucro>0 ? total/lucro : null, federal: irpj+csll+pis+cofins};
 }
-function precoMinimo(compra, custos, desejado, a){
+function precoMinimo(compra, custos, desejado, a, comissaoFixa){
   const k = a.irpjPres*a.irpj + a.csllPres*a.csll + a.pis + a.cofins;
   const i = a.icmsBase*a.icms;
-  let v = (desejado + custos + compra*(1-k)) / (1-k-i);
-  if(v < compra) v = (desejado + custos + compra) / (1-i);
+  const fixa = (comissaoFixa!=null && isFinite(comissaoFixa)) ? Number(comissaoFixa) : 0;
+  const p = fixa ? 0 : (Number(a.comPct)||0);
+  const sobreVenda = a.comBase==="venda";
+  const extra = desejado + custos + fixa;
+  let v;
+  if(sobreVenda){ v = (extra + compra*(1-k)) / (1-k-i-p); if(v < compra) v = (extra + compra) / (1-i-p); }
+  else { v = (extra + compra*(1-k-p)) / (1-k-p-i); if(v < compra) v = (extra + compra) / (1-i); }
   return v;
 }
 
@@ -225,17 +236,19 @@ $("vPlaca").addEventListener("input", e=>{ e.target.value = e.target.value.toUpp
 $("vPlaca").addEventListener("blur", e=>{ const v=e.target.value; hint("hPlaca", v && !placaOk(v) ? "Use ABC1D23 ou ABC1234" : "", "vPlaca"); });
 $("vRenavam").addEventListener("input", e=>{ e.target.value = soDig(e.target.value).slice(0,11); });
 $("vRenavam").addEventListener("blur", e=>{ const v=e.target.value; hint("hRenavam", v && v.length!==11 ? "Renavam tem 11 dígitos" : "", "vRenavam"); });
+$("xComissao").addEventListener("input", e=>{ e.target.dataset.manual = e.target.value.trim() ? "1" : ""; if(ultimo){ ultimo=null; $("bSalvar").disabled=true; renderResultado(null,"Comissão alterada. Aperte CALCULAR de novo."); } });
+$("xComissao").addEventListener("blur", e=>{ const n=parseBRL(e.target.value); if(!isNaN(n)) e.target.value = fmtN(n); });
 ["xCompra","xCustos","xVenda"].forEach(id=>{
   $(id).addEventListener("blur", e=>{ const n=parseBRL(e.target.value); if(!isNaN(n)) e.target.value = fmtN(n); });
   $(id).addEventListener("input", ()=>{ if(ultimo){ ultimo=null; $("bSalvar").disabled=true; renderResultado(null,"Valores alterados. Aperte CALCULAR de novo."); } });
 });
 
 /* ---------- formulário ---------- */
-const CAMPOS = ["cNome","cCpf","cEnd","cTel","cCidade","cUf","vModelo","vAno","vPlaca","vRenavam","vChassi","vOrigem","vDataCompra","vNfEnt","xCompra","xCustos","xVenda","xData","xNf","xVendedor"];
+const CAMPOS = ["cNome","cCpf","cEnd","cTel","cCidade","cUf","vModelo","vAno","vPlaca","vRenavam","vChassi","vOrigem","vDataCompra","vNfEnt","xCompra","xCustos","xVenda","xData","xComissao","xVendedor"];
 function limpar(){
   CAMPOS.forEach(id=>{ const el=$(id); el.value = el.tagName==="SELECT" ? el.options[0].value : ""; el.classList.remove("err"); });
   ["hCpf","hPlaca","hRenavam"].forEach(h=>hint(h,""));
-  $("xData").value = hoje(); $("formErr").textContent=""; editId=null; ultimo=null;
+  $("xData").value = hoje(); $("xComissao").dataset.manual = ""; $("formErr").textContent=""; editId=null; ultimo=null;
   $("bSalvar").disabled = true; $("bSalvar").textContent="Salvar venda";
   renderResultado(null);
 }
@@ -243,16 +256,17 @@ function lerForm(){
   return {
     cliente:{nome:$("cNome").value.trim(), doc:$("cCpf").value.trim(), endereco:$("cEnd").value.trim(), telefone:$("cTel").value.trim(), cidade:$("cCidade").value.trim(), uf:$("cUf").value.trim().toUpperCase()},
     veiculo:{modelo:$("vModelo").value.trim(), ano:$("vAno").value.trim(), placa:$("vPlaca").value.trim().toUpperCase().replace("-",""), renavam:$("vRenavam").value.trim(), chassi:$("vChassi").value.trim().toUpperCase(), origem:$("vOrigem").value, dataCompra:$("vDataCompra").value, nfEntrada:$("vNfEnt").value.trim()},
-    valores:{compra:parseBRL($("xCompra").value), custos:parseBRL($("xCustos").value)||0, venda:parseBRL($("xVenda").value), dataVenda:$("xData").value||hoje(), nfSaida:$("xNf").value.trim(), vendedor:$("xVendedor").value.trim()}
+    valores:{compra:parseBRL($("xCompra").value), custos:parseBRL($("xCustos").value)||0, venda:parseBRL($("xVenda").value), dataVenda:$("xData").value||hoje(), comissao:parseBRL($("xComissao").value), vendedor:$("xVendedor").value.trim()}
   };
 }
 function preencher(v){
   const c=v.cliente||{}, ve=v.veiculo||{}, x=v.valores||{};
   $("cNome").value=c.nome||""; $("cCpf").value=c.doc||""; $("cEnd").value=c.endereco||""; $("cTel").value=c.telefone||""; $("cCidade").value=c.cidade||""; $("cUf").value=c.uf||"";
   $("vModelo").value=ve.modelo||""; $("vAno").value=ve.ano||""; $("vPlaca").value=ve.placa||""; $("vRenavam").value=ve.renavam||""; $("vChassi").value=ve.chassi||""; $("vOrigem").value=ve.origem||"Concessionária"; $("vDataCompra").value=ve.dataCompra||""; $("vNfEnt").value=ve.nfEntrada||"";
-  $("xCompra").value= isFinite(x.compra)?fmtN(x.compra):""; $("xCustos").value= x.custos?fmtN(x.custos):""; $("xVenda").value= isFinite(x.venda)?fmtN(x.venda):""; $("xData").value=x.dataVenda||hoje(); $("xNf").value=x.nfSaida||""; $("xVendedor").value=x.vendedor||"";
+  $("xCompra").value= isFinite(x.compra)?fmtN(x.compra):""; $("xCustos").value= x.custos?fmtN(x.custos):""; $("xVenda").value= isFinite(x.venda)?fmtN(x.venda):""; $("xData").value=x.dataVenda||hoje(); $("xComissao").value = (x.comissao!=null && x.comissao!=="" && isFinite(x.comissao)) ? fmtN(Number(x.comissao)) : ""; $("xComissao").dataset.manual = $("xComissao").value ? "1" : ""; $("xVendedor").value=x.vendedor||"";
 }
-function aliqAtuais(){ const a={}; for(const k of Object.keys(PADRAO)) if(k!=="empresas") a[k]=Number(cfg[k]); return a; }
+function aliqAtuais(){ const a={}; for(const k of Object.keys(PADRAO)) if(k!=="empresas" && k!=="comBase") a[k]=Number(cfg[k])||0; a.comBase = cfg.comBase==="venda" ? "venda" : "lucro"; return a; }
+const comissaoGuardada = v => { const c = v && v.valores && v.valores.comissao; return (c!=null && c!=="" && isFinite(c)) ? Number(c) : 0; };
 
 $("form").addEventListener("submit", e=>{
   e.preventDefault();
@@ -262,7 +276,11 @@ $("form").addEventListener("submit", e=>{
   if(erros.length){ $("formErr").textContent = "Preencha o "+erros.join(" e o ")+" para calcular."; return; }
   $("formErr").textContent="";
   const a = aliqAtuais();
-  ultimo = {form:f, aliq:a, r:calcular(f.valores.compra, f.valores.venda, f.valores.custos, a)};
+  const manual = $("xComissao").dataset.manual==="1" && !isNaN(f.valores.comissao);
+  const r = calcular(f.valores.compra, f.valores.venda, f.valores.custos, a, manual ? f.valores.comissao : null);
+  if(!manual){ $("xComissao").value = r.comissao ? fmtN(r.comissao) : ""; }
+  f.valores.comissao = r.comissao;
+  ultimo = {form:f, aliq:a, r, comissaoManual:manual};
   $("bSalvar").disabled = false;
   renderResultado(ultimo);
   if(window.innerWidth<=880) $("resultBox").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
@@ -271,6 +289,7 @@ $("form").addEventListener("submit", e=>{
 $("bSalvar").addEventListener("click", async ()=>{
   if(!ultimo) return;
   const f = lerForm(); const falta=[];
+  f.valores.comissao = Math.round(ultimo.r.comissao*100)/100;
   if(!f.cliente.nome){ falta.push("nome do cliente"); $("cNome").classList.add("err"); } else $("cNome").classList.remove("err");
   if(!f.veiculo.modelo){ falta.push("modelo"); $("vModelo").classList.add("err"); } else $("vModelo").classList.remove("err");
   if(!placaOk(f.veiculo.placa)){ falta.push("placa válida"); $("vPlaca").classList.add("err"); } else $("vPlaca").classList.remove("err");
@@ -288,7 +307,7 @@ $("bLimpar").addEventListener("click", limpar);
 $("bExemplo").addEventListener("click", ()=>{
   preencher({cliente:{nome:"Cliente Exemplo da Silva", doc:"529.982.247-25", endereco:"Rua das Palmeiras, 120 – Centro", telefone:"(11) 98765-4321", cidade:"São Paulo", uf:"SP"},
     veiculo:{modelo:"BMW 430i", ano:"2025/2025", placa:"QFD5E22", renavam:"", chassi:"", origem:"Concessionária", dataCompra:"2026-04-09", nfEntrada:"CONC."},
-    valores:{compra:100000, custos:0, venda:105000, dataVenda:hoje(), nfSaida:"", vendedor:""}});
+    valores:{compra:100000, custos:0, venda:105000, dataVenda:hoje(), comissao:null, vendedor:""}});
   $("form").requestSubmit();
 });
 
@@ -312,29 +331,30 @@ function renderResultado(u, aviso){
     row("COFINS", "sobre o lucro", r.base, a.cofins, r.cofins)+
     row("ICMS", fmtPct(a.icmsBase,0)+" da venda", r.bcIcms, a.icms, r.icms)+
     '<tr class="tot"><td>Total de impostos</td><td></td><td></td><td>'+fmtBRL(r.total)+'</td></tr>'+
-    '<tr><td><b>Líquido da venda</b><small>lucro − impostos</small></td><td></td><td></td><td><b class="'+(r.liquido<0?"neg":"")+'">'+fmtBRL(r.liquido)+'</b></td></tr>'+
+    '<tr class="'+(r.comissao?"":"sub")+'"><td>Comissão do vendedor<small>'+(u.comissaoManual ? "valor digitado" : (a.comPct ? fmtAliq(a.comPct)+" "+(a.comBase==="venda"?"da venda":"do lucro") : "sem comissão definida"))+'</small></td><td>'+(u.comissaoManual||!a.comPct ? "" : fmtN(a.comBase==="venda" ? v.venda : r.base))+'</td><td>'+(u.comissaoManual||!a.comPct ? "" : fmtAliq(a.comPct))+'</td><td>'+fmtBRL(r.comissao)+'</td></tr>'+
+    '<tr><td><b>Líquido da venda</b><small>lucro − impostos − comissão</small></td><td></td><td></td><td><b class="'+(r.liquido<0?"neg":"")+'">'+fmtBRL(r.liquido)+'</b></td></tr>'+
     (r.custos? '<tr class="sub"><td>Custos de preparação</td><td></td><td></td><td>− '+fmtN(r.custos)+'</td></tr><tr><td><b>Sobra no bolso</b><small>depois dos custos</small></td><td></td><td></td><td><b class="'+(r.real<0?"neg":"ok")+'">'+fmtBRL(r.real)+'</b></td></tr>' : '')+
     '</tbody></table>'+
     (r.total>0 ? '<div class="bar" aria-hidden="true"><span style="width:'+(100-icmsShare*100)+'%;background:var(--muted)"></span><span style="width:'+(icmsShare*100)+'%;background:var(--accent)"></span></div>'+
       '<div class="legend"><span><i style="background:var(--muted)"></i>Federais '+fmtBRL(r.federal)+'</span><span><i style="background:var(--accent)"></i>ICMS '+fmtBRL(r.icms)+' ('+fmtPct(icmsShare,0)+' do total)</span></div>' : '')+
     '<div class="minimo"><div class="row"><div class="f"><label for="mDesejado">Quanto quer ganhar líquido?</label><div class="money"><input id="mDesejado" class="num" inputmode="decimal" placeholder="0,00"></div></div>'+
     '<div><div class="hint">Vender por no mínimo</div><output id="mOut" class="num">—</output></div></div>'+
-    '<p class="note" style="margin:6px 0 0">Considera compra'+(r.custos?", custos":"")+' e todos os impostos.</p></div>'+
+    '<p class="note" style="margin:6px 0 0">Considera compra'+(r.custos?", custos":"")+', comissão e todos os impostos.</p></div>'+
     '<div class="actions"><button type="button" class="btn" id="bPdfVenda">Gerar PDF desta venda</button></div>';
   $("bPdfVenda").addEventListener("click", ()=>{
     const f = lerForm();
-    const v = {...u.form, cliente:f.cliente, veiculo:f.veiculo, valores:{...u.form.valores, nfSaida:f.valores.nfSaida, vendedor:f.valores.vendedor, dataVenda:f.valores.dataVenda}};
+    const v = {...u.form, cliente:f.cliente, veiculo:f.veiculo, valores:{...u.form.valores, comissao:u.r.comissao, vendedor:f.valores.vendedor, dataVenda:f.valores.dataVenda}};
     pdfDaVenda(v, empresa);
   });
   $("mDesejado").addEventListener("input", e=>{
     const d = parseBRL(e.target.value);
-    $("mOut").textContent = isNaN(d) ? "—" : fmtBRL(precoMinimo(v.compra, r.custos, d, a));
+    $("mOut").textContent = isNaN(d) ? "—" : fmtBRL(precoMinimo(v.compra, r.custos, d, a, u.comissaoManual ? r.comissao : null));
   });
   function row(n, sub, base, aliq, val){ return '<tr><td>'+n+'<small>'+sub+'</small></td><td>'+fmtN(base)+'</td><td>'+fmtAliq(aliq)+'</td><td>'+fmtBRL(val)+'</td></tr>'; }
 }
 
 /* ---------- vendas e fechamento ---------- */
-function calcVenda(v){ const a = {...aliqAtuais(), ...(v.aliq||{})}; return calcular(Number(v.valores.compra), Number(v.valores.venda), Number(v.valores.custos)||0, a); }
+function calcVenda(v){ const a = {...aliqAtuais(), ...(v.aliq||{})}; return calcular(Number(v.valores.compra), Number(v.valores.venda), Number(v.valores.custos)||0, a, comissaoGuardada(v)); }
 function ultimoDiaUtil(y, m0){ const d=new Date(y, m0+1, 0); while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1); return d; }
 function dia25(y, m0){ const d=new Date(y, m0+1, 25); while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1); return d; }
 const fmtD = d => String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
@@ -359,28 +379,28 @@ function renderVendas(){
   const q = $("busca").value.trim().toLowerCase();
   const vis = q ? doMes.filter(v=>[v.veiculo?.placa,v.veiculo?.modelo,v.cliente?.nome].join(" ").toLowerCase().includes(q)) : doMes;
 
-  const somar = lista => { const A = {n:0,venda:0,compra:0,lucro:0,total:0,liquido:0,bcIrpj:0,irpj:0,bcCsll:0,csll:0,base:0,pis:0,cofins:0,bcIcms:0,icms:0};
+  const somar = lista => { const A = {n:0,venda:0,compra:0,lucro:0,total:0,comissao:0,liquido:0,bcIrpj:0,irpj:0,bcCsll:0,csll:0,base:0,pis:0,cofins:0,bcIcms:0,icms:0};
     lista.forEach(v=>{ const r=calcVenda(v); A.n++; A.venda+=Number(v.valores.venda); A.compra+=Number(v.valores.compra);
-      for(const k of ["lucro","total","liquido","bcIrpj","irpj","bcCsll","csll","base","pis","cofins","bcIcms","icms"]) A[k]+=r[k]||0; });
+      for(const k of ["lucro","total","comissao","liquido","bcIrpj","irpj","bcCsll","csll","base","pis","cofins","bcIcms","icms"]) A[k]+=r[k]||0; });
     return A; };
   const S = somar(doMes), T = somar(doTri);
 
   $("tiles").innerHTML =
     tile("Carros vendidos", String(doMes.length)) + tile("Faturamento", fmtBRL(S.venda)) +
-    tile("Lucro bruto", fmtBRL(S.lucro)) + tile("Impostos", fmtBRL(S.total)) + tile("Líquido", fmtBRL(S.liquido));
+    tile("Lucro bruto", fmtBRL(S.lucro)) + tile("Impostos", fmtBRL(S.total)) + tile("Comissões", fmtBRL(S.comissao)) + tile("Líquido", fmtBRL(S.liquido));
 
   if(!vis.length){
     $("tbVendas").innerHTML = '<tbody><tr><td class="l" style="padding:28px;color:var(--muted);white-space:normal">'+(doMes.length?"Nenhuma venda encontrada para essa busca.":"Nenhuma venda de "+esc(empresa)+" neste mês. Cadastre em <a href=\"#nova\">Nova venda</a>.")+'</td></tr></tbody>';
   } else {
-    let T={c:0,v:0,l:0,i:0,q:0};
-    $("tbVendas").innerHTML = '<thead><tr><th class="l">Data</th><th class="l">Veículo</th><th class="l">Cliente</th><th>Compra</th><th>Venda</th><th>Lucro</th><th>Impostos</th><th>Líquido</th><th>% s/ lucro</th><th></th></tr></thead><tbody class="num">'+
-      vis.map(v=>{ const r=calcVenda(v); T.c+=+v.valores.compra; T.v+=+v.valores.venda; T.l+=r.lucro; T.i+=r.total; T.q+=r.liquido;
-        return '<tr><td class="l c-data" data-label="Data">'+fmtData(v.valores.dataVenda)+(v.valores.nfSaida?'<span class="sub">NF '+esc(v.valores.nfSaida)+'</span>':'')+'</td>'+
+    let T={c:0,v:0,l:0,i:0,q:0,k:0};
+    $("tbVendas").innerHTML = '<thead><tr><th class="l">Data</th><th class="l">Veículo</th><th class="l">Cliente</th><th>Compra</th><th>Venda</th><th>Lucro</th><th>Impostos</th><th>Comissão</th><th>Líquido</th><th>% s/ lucro</th><th></th></tr></thead><tbody class="num">'+
+      vis.map(v=>{ const r=calcVenda(v); T.c+=+v.valores.compra; T.v+=+v.valores.venda; T.l+=r.lucro; T.i+=r.total; T.q+=r.liquido; T.k+=r.comissao;
+        return '<tr><td class="l c-data" data-label="Data">'+fmtData(v.valores.dataVenda)+'</td>'+
         '<td class="l c-veic" data-label="Veículo"><span class="placa"><b>BRASIL</b><span>'+esc(v.veiculo?.placa||"—")+'</span></span> '+esc(v.veiculo?.modelo||"")+'</td>'+
         '<td class="l c-cli" data-label="Cliente">'+(esc(v.cliente?.nome)||'<span class="sub">—</span>')+'</td>'+
-        '<td data-label="Compra">'+fmtN(v.valores.compra)+'</td><td data-label="Venda">'+fmtN(v.valores.venda)+'</td><td data-label="Lucro" class="'+(r.lucro<0?"neg":"")+'">'+fmtN(r.lucro)+'</td><td data-label="Impostos">'+fmtN(r.total)+'</td><td data-label="Líquido" class="c-liq '+(r.liquido<0?"neg":"")+'">'+fmtN(r.liquido)+'</td><td data-label="% s/ lucro">'+(r.pct==null?"—":fmtPct(r.pct))+'</td>'+
+        '<td data-label="Compra">'+fmtN(v.valores.compra)+'</td><td data-label="Venda">'+fmtN(v.valores.venda)+'</td><td data-label="Lucro" class="'+(r.lucro<0?"neg":"")+'">'+fmtN(r.lucro)+'</td><td data-label="Impostos">'+fmtN(r.total)+'</td><td data-label="Comissão">'+fmtN(r.comissao)+'</td><td data-label="Líquido" class="c-liq '+(r.liquido<0?"neg":"")+'">'+fmtN(r.liquido)+'</td><td data-label="% s/ lucro">'+(r.pct==null?"—":fmtPct(r.pct))+'</td>'+
         '<td class="c-acoes"><button class="btn sm link" data-pdf="'+esc(v.id)+'" type="button">PDF</button><button class="btn sm link" data-ed="'+esc(v.id)+'" type="button">Editar</button><button class="btn sm link danger" data-del="'+esc(v.id)+'" type="button">Excluir</button></td></tr>'; }).join("")+
-      '</tbody><tfoot class="num"><tr><td class="l c-data" colspan="3">Total ('+vis.length+')</td><td data-label="Compra">'+fmtN(T.c)+'</td><td data-label="Venda">'+fmtN(T.v)+'</td><td data-label="Lucro">'+fmtN(T.l)+'</td><td data-label="Impostos">'+fmtN(T.i)+'</td><td data-label="Líquido">'+fmtN(T.q)+'</td><td data-label="% s/ lucro">'+(T.l>0?fmtPct(T.i/T.l):"—")+'</td><td class="c-acoes"></td></tr></tfoot>';
+      '</tbody><tfoot class="num"><tr><td class="l c-data" colspan="3">Total ('+vis.length+')</td><td data-label="Compra">'+fmtN(T.c)+'</td><td data-label="Venda">'+fmtN(T.v)+'</td><td data-label="Lucro">'+fmtN(T.l)+'</td><td data-label="Impostos">'+fmtN(T.i)+'</td><td data-label="Comissão">'+fmtN(T.k)+'</td><td data-label="Líquido">'+fmtN(T.q)+'</td><td data-label="% s/ lucro">'+(T.l>0?fmtPct(T.i/T.l):"—")+'</td><td class="c-acoes"></td></tr></tfoot>';
   }
 
   // fechamento
@@ -476,7 +496,7 @@ async function pdfDaVenda(v, emp){
   const J = jsPDFpronto(); if(!J) return;
   const logo = await carregarLogo();
   const a = {...aliqAtuais(), ...(v.aliq||{})};
-  const r = calcular(Number(v.valores.compra), Number(v.valores.venda), Number(v.valores.custos)||0, a);
+  const r = calcular(Number(v.valores.compra), Number(v.valores.venda), Number(v.valores.custos)||0, a, comissaoGuardada(v));
   const doc = RevendaPDF.resumoVenda(J, {v, r, aliq:a, empresa:emp, logo});
   entregarPDF(doc, "Venda-"+nomeArq(v.veiculo?.placa||v.veiculo?.modelo||"veiculo")+"-"+(v.valores.dataVenda||hoje())+".pdf");
 }
@@ -498,11 +518,11 @@ $("bCsv").addEventListener("click", async ()=>{
   const mes = mesEscolhido || mesDe(hoje());
   const rows = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda && mesDe(v.valores.dataVenda)===mes).sort((a,b)=>a.valores.dataVenda.localeCompare(b.valores.dataVenda));
   const n = x => Number(x).toFixed(2).replace(".",",");
-  const head = ["Empresa","Data venda","NF saída","Modelo","Placa","Renavam","Chassi","Data compra","NF entrada","Origem","Cliente","CPF/CNPJ","Endereço","Cidade","UF","Telefone","Compra","Custos","Venda","Lucro","BC IRPJ","IRPJ","BC CSLL","CSLL","PIS","COFINS","BC ICMS","ICMS","Total impostos","Líquido"];
+  const head = ["Empresa","Data venda","Modelo","Placa","Renavam","Chassi","Data compra","NF entrada","Origem","Cliente","CPF/CNPJ","Endereço","Cidade","UF","Telefone","Compra","Custos","Venda","Lucro","BC IRPJ","IRPJ","BC CSLL","CSLL","PIS","COFINS","BC ICMS","ICMS","Total impostos","Comissão","Líquido"];
   const q = s => '"'+String(s==null?"":s).replace(/"/g,'""')+'"';
   const lines = [head.map(q).join(";")].concat(rows.map(v=>{ const r=calcVenda(v), c=v.cliente||{}, ve=v.veiculo||{}, x=v.valores;
-    return [v.empresa,fmtData(x.dataVenda),x.nfSaida,ve.modelo,ve.placa,ve.renavam,ve.chassi,fmtData(ve.dataCompra),ve.nfEntrada,ve.origem,c.nome,c.doc,c.endereco,c.cidade,c.uf,c.telefone].map(q)
-      .concat([x.compra,x.custos||0,x.venda,r.lucro,r.bcIrpj,r.irpj,r.bcCsll,r.csll,r.pis,r.cofins,r.bcIcms,r.icms,r.total,r.liquido].map(n)).join(";"); }));
+    return [v.empresa,fmtData(x.dataVenda),ve.modelo,ve.placa,ve.renavam,ve.chassi,fmtData(ve.dataCompra),ve.nfEntrada,ve.origem,c.nome,c.doc,c.endereco,c.cidade,c.uf,c.telefone].map(q)
+      .concat([x.compra,x.custos||0,x.venda,r.lucro,r.bcIrpj,r.irpj,r.bcCsll,r.csll,r.pis,r.cofins,r.bcIcms,r.icms,r.total,r.comissao,r.liquido].map(n)).join(";"); }));
   const csv = "﻿" + lines.join("\r\n");
   const nome = "vendas-"+empresa+"-"+mes+".csv";
   try{
@@ -515,18 +535,20 @@ $("bCsv").addEventListener("click", async ()=>{
 /* ---------- alíquotas ---------- */
 function renderCfg(){
   $("cfgFields").innerHTML = CFG_META.map(([k,l,pct])=>'<div class="f'+(k==="empresas"?" s4":"")+'"><label for="cfg_'+k+'">'+l+'</label>'+
-    (pct ? '<div style="position:relative"><input id="cfg_'+k+'" class="num" inputmode="decimal" value="'+String(+(Number(cfg[k])*100).toFixed(4)).replace(".",",")+'" style="padding-right:28px;text-align:right"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted)">%</span></div>'
+    (pct==="sel" ? '<select id="cfg_'+k+'"><option value="lucro"'+(cfg.comBase!=="venda"?" selected":"")+'>Lucro da venda (venda − compra)</option><option value="venda"'+(cfg.comBase==="venda"?" selected":"")+'>Valor de venda</option></select>' :
+     pct ? '<div style="position:relative"><input id="cfg_'+k+'" class="num" inputmode="decimal" value="'+String(+(Number(cfg[k])*100).toFixed(4)).replace(".",",")+'" style="padding-right:28px;text-align:right"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted)">%</span></div>'
          : (k==="empresas" ? '<input id="cfg_'+k+'" value="'+esc(cfg[k])+'">' : '<div class="money"><input id="cfg_'+k+'" class="num" inputmode="decimal" value="'+fmtN(Number(cfg[k]))+'"></div>'))+'</div>').join("");
 }
 $("bCfg").addEventListener("click", async ()=>{
   const novo={}; let erro=null;
   for(const [k,l,pct] of CFG_META){ const raw=$("cfg_"+k).value;
     if(k==="empresas"){ if(!raw.split(",").map(s=>s.trim()).filter(Boolean).length) erro="Informe ao menos uma empresa."; novo[k]=raw; continue; }
+    if(pct==="sel"){ novo[k] = raw==="venda" ? "venda" : "lucro"; continue; }
     const n=parseBRL(raw); if(isNaN(n)||n<0){ erro="Confira o campo "+l+"."; break; } novo[k]= pct ? n/100 : n; }
   if(erro){ toast(erro); return; }
   try{ await salvarCfg(novo); toast("Alíquotas salvas"); }catch(e){ toast(e && e.code==="offline" ? msgErro(e,"") : "Só o administrador pode alterar as alíquotas"); }
 });
-$("bCfgPadrao").addEventListener("click", ()=>{ const keep=cfg.empresas; cfg={...PADRAO, empresas:keep}; renderCfg(); toast("Valores da planilha carregados. Aperte Salvar para gravar."); });
+$("bCfgPadrao").addEventListener("click", ()=>{ const keep=cfg.empresas, cp=cfg.comPct, cb=cfg.comBase; cfg={...PADRAO, empresas:keep, comPct:cp, comBase:cb}; renderCfg(); toast("Valores da planilha carregados. Aperte Salvar para gravar."); });
 
 /* ---------- render geral ---------- */
 function renderTudo(){

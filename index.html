@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=10">
+<link rel="manifest" href="manifest.json?v=11">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -33,7 +33,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -105,7 +105,7 @@
           <div class="f s2"><label for="xCustos">Custos de preparação</label><div class="money"><input id="xCustos" class="num" inputmode="decimal" placeholder="0,00"></div><span class="hint">Funilaria, pneus, documentação…</span></div>
           <div class="f s2"><label for="xVenda">Valor de venda <span class="req">*</span></label><div class="money"><input id="xVenda" class="num" inputmode="decimal" placeholder="0,00"></div></div>
           <div class="f s2"><label for="xData">Data da venda</label><input id="xData" type="date"></div>
-          <div class="f s2"><label for="xNf">NF de saída</label><input id="xNf"></div>
+          <div class="f s2"><label for="xComissao">Comissão do vendedor</label><div class="money"><input id="xComissao" class="num" inputmode="decimal" placeholder="automática"></div><span class="hint">Calculada pela % da aba Alíquotas. Pode digitar outro valor.</span></div>
           <div class="f s2"><label for="xVendedor">Vendedor</label><input id="xVendedor"></div>
         </div>
         <div class="actions">
@@ -203,11 +203,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=10"></script>
-<script src="lib/supabase.js?v=10"></script>
-<script src="lib/jspdf.umd.min.js?v=10"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=10"></script>
-<script src="pdf.js?v=10"></script>
-<script src="script.js?v=10"></script>
+<script src="config.js?v=11"></script>
+<script src="lib/supabase.js?v=11"></script>
+<script src="lib/jspdf.umd.min.js?v=11"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=11"></script>
+<script src="pdf.js?v=11"></script>
+<script src="script.js?v=11"></script>
 </body>
 </html>
