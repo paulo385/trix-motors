@@ -12,7 +12,7 @@ Site em HTML, CSS e JavaScript puro, sem framework, para cadastrar vendas de ve�
 | `config.js` | Endereço e chave pública do banco de dados (Supabase). Em branco = vendas só no aparelho |
 | `supabase/setup.sql` | Script que cria as tabelas e as regras de acesso no Supabase |
 | `.github/workflows/manter-banco-ativo.yml` | Rotina do GitHub que evita a pausa do banco grátis |
-| `pdf.js` | Monta os PDFs: relatório do trimestre e resumo de cada venda |
+| `pdf.js` | Monta os PDFs: relatório do mês e resumo de cada venda |
 | `manifest.json` | Nome, ícone e cores do app quando instalado no celular |
 | `sw.js` | Faz o app abrir rápido e funcionar sem internet. Ao mudar qualquer arquivo, aumente a `VERSAO` dentro dele e o `?v=` no index.html |
 | `icons/` | Logo da Trix Motors, favicon e ícones do app (tela inicial, Android e iPhone) |
@@ -46,7 +46,7 @@ Depois de instalado, ele abre em tela cheia, com ícone próprio, e funciona mes
 
 ## Relatórios em PDF
 
-- **Relatório do trimestre:** na aba *Vendas e fechamento*, escolha o trimestre e aperte **RELATÓRIO PDF**. Sai a lista de vendas da empresa selecionada, os impostos de cada uma, o fechamento de IRPJ/CSLL e PIS/COFINS/ICMS com vencimentos e a conferência com o DARF pago.
+- **Relatório do mês:** na aba *Vendas e impostos*, escolha o mês e aperte **RELATÓRIO PDF**. Sai a lista de vendas do mês, os impostos de cada uma, PIS/COFINS/ICMS do mês com vencimento, o IRPJ/CSLL acumulado do trimestre (que é pago por trimestre) e a conferência com o DARF pago.
 - **PDF de uma venda:** aperte **PDF** na linha da venda, ou **Gerar PDF desta venda** logo depois de calcular. Sai a ficha do cliente e do veículo, os impostos e o resultado. É documento interno, não é nota fiscal.
 
 ## Banco de dados (Supabase, grátis)

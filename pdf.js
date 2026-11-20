@@ -274,5 +274,113 @@
     return doc;
   }
 
-  root.RevendaPDF = { relatorioTrimestre, resumoVenda };
+
+  /* ---------------- Relatório do mês ----------------
+     dados = { mes:"2026-11", empresa, vendasMes:[{v,r}], vendasTri:[{v,r}], fech, adicLimite, adic, logo } */
+  function somar(lista) {
+    const S = { n: 0, venda: 0, compra: 0, lucro: 0, total: 0, liquido: 0, bcIrpj: 0, irpj: 0, bcCsll: 0, csll: 0, base: 0, pis: 0, cofins: 0, bcIcms: 0, icms: 0 };
+    lista.forEach(({ v, r }) => {
+      S.n++; S.venda += Number(v.valores.venda); S.compra += Number(v.valores.compra);
+      ["lucro", "total", "liquido", "bcIrpj", "irpj", "bcCsll", "csll", "base", "pis", "cofins", "bcIcms", "icms"].forEach(k => S[k] += r[k] || 0);
+    });
+    return S;
+  }
+  function relatorioMes(jsPDF, dados) {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const [ano, mm] = dados.mes.split("-").map(Number); const m0 = mm - 1;
+    const q = Math.floor(m0 / 3) + 1;
+    const nomesTri = [["jan", "mar"], ["abr", "jun"], ["jul", "set"], ["out", "dez"]][q - 1];
+    const vencTri = dd(ultimoDiaUtil(ano, q * 3 - 1));
+    const vencMes = dd(dia25(ano, m0));
+    const emp = dados.empresa;
+    let y = cabecalho(doc, "Relatório de vendas e impostos · " + emp, MESES[m0] + " de " + ano, "Gerado em " + agora(), logoDe(dados, emp));
+
+    const vendas = dados.vendasMes.slice().sort((a, b) => a.v.valores.dataVenda.localeCompare(b.v.valores.dataVenda));
+    const S = somar(vendas);
+    const T = somar(dados.vendasTri || []);
+    const adicional = Math.max(0, T.bcIrpj - Number(dados.adicLimite)) * Number(dados.adic);
+
+    y = blocosResumo(doc, y, [
+      ["Carros vendidos", String(S.n)],
+      ["Faturamento", brl(S.venda)],
+      ["Lucro bruto", brl(S.lucro)],
+      ["Impostos do mês", brl(S.total), LARANJA],
+      ["Líquido", brl(S.liquido), S.liquido < 0 ? VERMELHO : TINTA],
+    ]);
+
+    y = titulo2(doc, y, "Vendas do mês");
+    if (!vendas.length) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...CINZA);
+      doc.text("Nenhuma venda registrada neste mês.", 14, y + 5); y += 12;
+    } else {
+      y = tabela(doc, Object.assign({}, baseTabela, {
+        startY: y + 1,
+        head: [["Data", "NF saída", "Veículo", "Placa", "Cliente", "Compra", "Venda", "Lucro", "IRPJ", "CSLL", "PIS", "COFINS", "ICMS", "Impostos", "Líquido", "% s/ lucro"]],
+        body: vendas.map(({ v, r }) => [
+          data(v.valores.dataVenda), v.valores.nfSaida || "-", v.veiculo.modelo || "-", v.veiculo.placa || "-", (v.cliente && v.cliente.nome) || "-",
+          num(v.valores.compra), num(v.valores.venda), num(r.lucro), num(r.irpj), num(r.csll), num(r.pis), num(r.cofins), num(r.icms), num(r.total), num(r.liquido), pct(r.pct)]),
+        foot: [["Total", "", S.n + " venda" + (S.n > 1 ? "s" : ""), "", "", num(S.compra), num(S.venda), num(S.lucro), num(S.irpj), num(S.csll), num(S.pis), num(S.cofins), num(S.icms), num(S.total), num(S.liquido), S.lucro > 0 ? pct(S.total / S.lucro) : "-"]],
+        showFoot: "lastPage",
+        styles: Object.assign({}, baseTabela.styles, { fontSize: 7.5, cellPadding: 1.5 }),
+        headStyles: Object.assign({}, baseTabela.headStyles, { fontSize: 7, halign: "right" }),
+        footStyles: Object.assign({}, baseTabela.footStyles, { halign: "right" }),
+        columnStyles: (() => { const c = {}; for (let i = 5; i <= 15; i++) c[i] = { halign: "right" }; c[4] = { cellWidth: 34 }; return c; })(),
+        didParseCell: h => { if (h.column.index <= 4 && (h.section === "head" || h.section === "foot")) h.cell.styles.halign = "left"; },
+      })) + 8;
+    }
+
+    y = precisaPagina(doc, y, 66);
+    const W = doc.internal.pageSize.getWidth();
+    const colW = (W - 28 - 8) / 2;
+    const yTit = y;
+    titulo2(doc, yTit, "Impostos do mês");
+    const yA = tabela(doc, Object.assign({}, baseTabela, {
+      startY: yTit + 2, margin: { left: 14 }, tableWidth: colW,
+      head: [["Tributo", "Código", "Base de cálculo", "Valor", "Vencimento"]],
+      body: [
+        ["PIS", "8109", num(S.base), num(S.pis), vencMes],
+        ["COFINS", "2172", num(S.base), num(S.cofins), vencMes],
+        ["ICMS", "guia estadual", num(S.bcIcms), num(S.icms), "conforme o estado"],
+        ["IRPJ (parte do mês)", "2089", num(S.bcIrpj), num(S.irpj), "no DARF do trimestre"],
+        ["CSLL (parte do mês)", "2372", num(S.bcCsll), num(S.csll), "no DARF do trimestre"],
+      ],
+      foot: [["Total do mês", "", "", num(S.total), ""]],
+      columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "center" } },
+    }));
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11.5); doc.setTextColor(...TINTA);
+    doc.text("IRPJ e CSLL do " + q + "º trimestre (" + nomesTri[0] + " a " + nomesTri[1] + ") até agora", 14 + colW + 8, yTit);
+    const yB = tabela(doc, Object.assign({}, baseTabela, {
+      startY: yTit + 2, margin: { left: 14 + colW + 8 }, tableWidth: colW,
+      head: [["Tributo", "Código DARF", "Base de cálculo", "Valor", "Vencimento"]],
+      body: [
+        ["IRPJ", "2089", num(T.bcIrpj), num(T.irpj), vencTri],
+        ["Adicional IRPJ 10%", "2089", adicional ? num(Math.max(0, T.bcIrpj - dados.adicLimite)) : "-", num(adicional), vencTri],
+        ["CSLL", "2372", num(T.bcCsll), num(T.csll), vencTri],
+      ],
+      foot: [["Total IRPJ + CSLL", "", T.n + " venda" + (T.n === 1 ? "" : "s") + " no trimestre", num(T.irpj + adicional + T.csll), ""]],
+      columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "center" } },
+    }));
+    y = Math.max(yA, yB) + 6;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...CINZA);
+    doc.text("IRPJ e CSLL são apurados por trimestre no lucro presumido: o valor do mês entra no DARF único pago até " + vencTri + ".", 14, y, { maxWidth: W - 28 });
+    y += 8;
+
+    const f = dados.fech;
+    if (f && (f.irpj != null || f.csll != null)) {
+      y = precisaPagina(doc, y, 40);
+      y = titulo2(doc, y, "Conferência com o DARF pago do trimestre" + (f.pagoEm ? " (pago em " + data(f.pagoEm) + ")" : ""));
+      const linha = (nome, calc, pago) => [nome, num(calc), pago == null ? "-" : num(pago), pago == null ? "-" : (pago - calc >= 0 ? "+" : "-") + n2(Math.abs(pago - calc))];
+      y = tabela(doc, Object.assign({}, baseTabela, {
+        startY: y + 1, tableWidth: colW,
+        head: [["DARF", "Calculado (veículos)", "Pago", "Diferença"]],
+        body: [linha("IRPJ", T.irpj + adicional, f.irpj), linha("CSLL", T.csll, f.csll)],
+        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+      })) + 6;
+    }
+
+    rodapes(doc, "Lucro presumido sobre a margem (venda - compra). IRPJ 8% x 15%, CSLL 12% x 9%, PIS 0,65% e COFINS 3% sobre o lucro, ICMS 19,5% sobre 5% da venda. Vencimentos consideram só fins de semana, não feriados. Documento interno: confirme valores, códigos e prazos com o contador. " + emp + ".");
+    return doc;
+  }
+
+  root.RevendaPDF = { relatorioTrimestre, relatorioMes, resumoVenda };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -28,6 +28,9 @@ function parseBRL(s){
 }
 const hoje = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const triDe = s => { const [y,m]=s.split("-").map(Number); return y+"-T"+(Math.floor((m-1)/3)+1); };
+const mesDe = s => s.slice(0,7);
+const MESES_NOME = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const mesNome = k => { const [y,m]=k.split("-").map(Number); return MESES_NOME[m-1]+" de "+y; };
 const triNome = t => { const [y,q]=t.split("-T"); const ms=[["jan","mar"],["abr","jun"],["jul","set"],["out","dez"]][q-1]; return q+"º trimestre "+y+" ("+ms[0]+"–"+ms[1]+")"; };
 
 /* ---------- cálculo (mesma lógica da aba IMPOSTO da planilha) ---------- */
@@ -335,29 +338,29 @@ const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Ag
 
 function renderVendas(){
   const daEmpresa = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda);
-  const tris = new Set(daEmpresa.map(v=>triDe(v.valores.dataVenda))); tris.add(triDe(hoje()));
-  const lista = [...tris].sort().reverse();
-  const sel = $("selTri"); const atual = sel.value && lista.includes(sel.value) ? sel.value : (lista.find(t=>daEmpresa.some(v=>triDe(v.valores.dataVenda)===t)) || lista[0]);
-  sel.innerHTML = lista.map(t=>'<option value="'+t+'"'+(t===atual?" selected":"")+'>'+triNome(t)+'</option>').join("");
-  const tri = atual;
-  const doTri = daEmpresa.filter(v=>triDe(v.valores.dataVenda)===tri).sort((a,b)=>a.valores.dataVenda.localeCompare(b.valores.dataVenda));
+  const meses = new Set(daEmpresa.map(v=>mesDe(v.valores.dataVenda))); meses.add(mesDe(hoje()));
+  const lista = [...meses].sort().reverse();
+  const sel = $("selMes"); const atual = sel.value && lista.includes(sel.value) ? sel.value : lista[0];
+  sel.innerHTML = lista.map(k=>'<option value="'+k+'"'+(k===atual?" selected":"")+'>'+mesNome(k)+'</option>').join("");
+  const mes = atual;
+  const doMes = daEmpresa.filter(v=>mesDe(v.valores.dataVenda)===mes).sort((a,b)=>a.valores.dataVenda.localeCompare(b.valores.dataVenda));
+  const tri = triDe(mes+"-01");
+  const doTri = daEmpresa.filter(v=>triDe(v.valores.dataVenda)===tri);
   const q = $("busca").value.trim().toLowerCase();
-  const vis = q ? doTri.filter(v=>[v.veiculo?.placa,v.veiculo?.modelo,v.cliente?.nome].join(" ").toLowerCase().includes(q)) : doTri;
+  const vis = q ? doMes.filter(v=>[v.veiculo?.placa,v.veiculo?.modelo,v.cliente?.nome].join(" ").toLowerCase().includes(q)) : doTri;
 
-  const S = {venda:0,compra:0,lucro:0,total:0,liquido:0,bcIrpj:0,irpj:0,bcCsll:0,csll:0,pis:0,cofins:0,icms:0};
-  const porMes = {};
-  doTri.forEach(v=>{ const r=calcVenda(v); const m=Number(v.valores.dataVenda.slice(5,7))-1;
-    porMes[m] = porMes[m] || {n:0,lucro:0,pis:0,cofins:0,icms:0};
-    Object.assign(porMes[m], {n:porMes[m].n+1, lucro:porMes[m].lucro+r.lucro, pis:porMes[m].pis+r.pis, cofins:porMes[m].cofins+r.cofins, icms:porMes[m].icms+r.icms});
-    S.venda+=Number(v.valores.venda); S.compra+=Number(v.valores.compra);
-    for(const k of ["lucro","total","liquido","bcIrpj","irpj","bcCsll","csll","pis","cofins","icms"]) S[k]+=r[k]; });
+  const somar = lista => { const A = {n:0,venda:0,compra:0,lucro:0,total:0,liquido:0,bcIrpj:0,irpj:0,bcCsll:0,csll:0,base:0,pis:0,cofins:0,bcIcms:0,icms:0};
+    lista.forEach(v=>{ const r=calcVenda(v); A.n++; A.venda+=Number(v.valores.venda); A.compra+=Number(v.valores.compra);
+      for(const k of ["lucro","total","liquido","bcIrpj","irpj","bcCsll","csll","base","pis","cofins","bcIcms","icms"]) A[k]+=r[k]||0; });
+    return A; };
+  const S = somar(doMes), T = somar(doTri);
 
   $("tiles").innerHTML =
-    tile("Carros vendidos", String(doTri.length)) + tile("Faturamento", fmtBRL(S.venda)) +
+    tile("Carros vendidos", String(doMes.length)) + tile("Faturamento", fmtBRL(S.venda)) +
     tile("Lucro bruto", fmtBRL(S.lucro)) + tile("Impostos", fmtBRL(S.total)) + tile("Líquido", fmtBRL(S.liquido));
 
   if(!vis.length){
-    $("tbVendas").innerHTML = '<tbody><tr><td class="l" style="padding:28px;color:var(--muted);white-space:normal">'+(doTri.length?"Nenhuma venda encontrada para essa busca.":"Nenhuma venda de "+esc(empresa)+" neste trimestre. Cadastre em <a href=\"#nova\">Nova venda</a>.")+'</td></tr></tbody>';
+    $("tbVendas").innerHTML = '<tbody><tr><td class="l" style="padding:28px;color:var(--muted);white-space:normal">'+(doMes.length?"Nenhuma venda encontrada para essa busca.":"Nenhuma venda de "+esc(empresa)+" neste mês. Cadastre em <a href=\"#nova\">Nova venda</a>.")+'</td></tr></tbody>';
   } else {
     let T={c:0,v:0,l:0,i:0,q:0};
     $("tbVendas").innerHTML = '<thead><tr><th class="l">Data</th><th class="l">Veículo</th><th class="l">Cliente</th><th>Compra</th><th>Venda</th><th>Lucro</th><th>Impostos</th><th>Líquido</th><th>% s/ lucro</th><th></th></tr></thead><tbody class="num">'+
@@ -371,29 +374,36 @@ function renderVendas(){
   }
 
   // fechamento
-  const [ano, qs] = tri.split("-T"); const y=Number(ano), qn=Number(qs);
-  const adicional = Math.max(0, S.bcIrpj - Number(cfg.adicLimite)) * Number(cfg.adic);
-  const irpjTot = S.irpj + adicional;
-  const venc = fmtD(ultimoDiaUtil(y, qn*3-1));
-  const meses = [0,1,2].map(i=>(qn-1)*3+i);
+  const [ano, mm] = mes.split("-").map(Number); const m0 = mm-1;
+  const qn = Math.floor(m0/3)+1;
+  const adicional = Math.max(0, T.bcIrpj - Number(cfg.adicLimite)) * Number(cfg.adic);
+  const irpjTot = T.irpj + adicional;
+  const venc = fmtD(ultimoDiaUtil(ano, qn*3-1));
+  const vencMes = fmtD(dia25(ano, m0));
+  const nomesTri = [["jan","mar"],["abr","jun"],["jul","set"],["out","dez"]][qn-1];
+  $("fechTitulo").textContent = "Impostos de " + mesNome(mes).toLowerCase();
   $("fechTab").innerHTML =
     '<table class="tax num"><thead><tr><th>Tributo</th><th>Base</th><th>Valor</th><th>Vencimento</th></tr></thead><tbody>'+
-    '<tr><td>IRPJ<small>DARF 2089 · trimestral</small></td><td>'+fmtN(S.bcIrpj)+'</td><td>'+fmtBRL(S.irpj)+'</td><td>'+venc+'</td></tr>'+
+    '<tr><td>PIS<small>DARF 8109 · mensal</small></td><td>'+fmtN(S.base)+'</td><td>'+fmtBRL(S.pis)+'</td><td>'+vencMes+'</td></tr>'+
+    '<tr><td>COFINS<small>DARF 2172 · mensal</small></td><td>'+fmtN(S.base)+'</td><td>'+fmtBRL(S.cofins)+'</td><td>'+vencMes+'</td></tr>'+
+    '<tr><td>ICMS<small>guia estadual</small></td><td>'+fmtN(S.bcIcms)+'</td><td>'+fmtBRL(S.icms)+'</td><td>conforme o estado</td></tr>'+
+    '<tr class="sub"><td>IRPJ do mês<small>entra no DARF do trimestre</small></td><td>'+fmtN(S.bcIrpj)+'</td><td>'+fmtBRL(S.irpj)+'</td><td>'+venc+'</td></tr>'+
+    '<tr class="sub"><td>CSLL do mês<small>entra no DARF do trimestre</small></td><td>'+fmtN(S.bcCsll)+'</td><td>'+fmtBRL(S.csll)+'</td><td>'+venc+'</td></tr>'+
+    '<tr class="tot"><td>Total do mês</td><td></td><td>'+fmtBRL(S.total)+'</td><td></td></tr></tbody></table>'+
+    '<h3 style="margin:18px 0 6px;font-size:1rem">IRPJ e CSLL do '+qn+'º trimestre ('+nomesTri[0]+'–'+nomesTri[1]+') até agora</h3>'+
+    '<table class="tax num"><thead><tr><th>Tributo</th><th>Base</th><th>Valor</th><th>Vencimento</th></tr></thead><tbody>'+
+    '<tr><td>IRPJ<small>DARF 2089</small></td><td>'+fmtN(T.bcIrpj)+'</td><td>'+fmtBRL(T.irpj)+'</td><td>'+venc+'</td></tr>'+
     '<tr class="'+(adicional?"":"sub")+'"><td>Adicional IRPJ 10%<small>BC acima de '+fmtBRL(Number(cfg.adicLimite))+'</small></td><td></td><td>'+fmtBRL(adicional)+'</td><td>'+venc+'</td></tr>'+
-    '<tr><td>CSLL<small>DARF 2372 · trimestral</small></td><td>'+fmtN(S.bcCsll)+'</td><td>'+fmtBRL(S.csll)+'</td><td>'+venc+'</td></tr>'+
-    '<tr class="tot"><td>IRPJ + CSLL</td><td></td><td>'+fmtBRL(irpjTot+S.csll)+'</td><td></td></tr></tbody></table>'+
-    '<h3 style="margin:18px 0 6px;font-size:1rem">Mensais</h3>'+
-    '<table class="tax num"><thead><tr><th>Mês</th><th>Vendas</th><th>PIS<small>8109</small></th><th>COFINS<small>2172</small></th><th>ICMS</th><th>Venc. PIS/COF</th></tr></thead><tbody>'+
-    meses.map(m=>{ const p=porMes[m]||{n:0,pis:0,cofins:0,icms:0}; return '<tr><td>'+MESES[m]+'</td><td>'+p.n+'</td><td>'+fmtN(p.pis)+'</td><td>'+fmtN(p.cofins)+'</td><td>'+fmtN(p.icms)+'</td><td>'+fmtD(dia25(y,m))+'</td></tr>'; }).join("")+
-    '<tr class="tot"><td>Trimestre</td><td>'+doTri.length+'</td><td>'+fmtN(S.pis)+'</td><td>'+fmtN(S.cofins)+'</td><td>'+fmtN(S.icms)+'</td><td></td></tr></tbody></table>'+
-    '<p class="note">Vencimentos consideram só fins de semana, não feriados. O ICMS segue a guia e o prazo do seu estado. Confirme códigos e prazos com o contador.</p>';
+    '<tr><td>CSLL<small>DARF 2372</small></td><td>'+fmtN(T.bcCsll)+'</td><td>'+fmtBRL(T.csll)+'</td><td>'+venc+'</td></tr>'+
+    '<tr class="tot"><td>IRPJ + CSLL ('+T.n+' venda'+(T.n===1?'':'s')+')</td><td></td><td>'+fmtBRL(irpjTot+T.csll)+'</td><td></td></tr></tbody></table>'+
+    '<p class="note">No lucro presumido, IRPJ e CSLL são pagos uma vez por trimestre. Vencimentos consideram só fins de semana, não feriados. Confirme códigos e prazos com o contador.</p>';
 
   // conferência
   const fid = empresa.replace(/[^A-Za-z0-9_-]/g,"_")+"-"+tri;
   const fc = fechamentos[fid] || {};
   const dif = (pago, calc) => { if(pago==null || isNaN(pago)) return '<span class="sub">—</span>'; const d=pago-calc; return '<span class="'+(Math.abs(d)<0.01?"ok":"")+'">'+(d>=0?"+":"−")+" "+fmtN(d)+'</span>'; };
   $("confBox").innerHTML =
-    '<p class="note" style="margin-top:0">Lance o valor pago. A diferença mostra o que veio de outras receitas que não são venda de veículo.</p>'+
+    '<p class="note" style="margin-top:0">DARF do '+qn+'º trimestre de '+ano+'. Lance o valor pago. A diferença mostra o que veio de outras receitas que não são venda de veículo.</p>'+
     '<table class="tax num"><thead><tr><th>DARF</th><th>Calculado</th><th>Pago</th><th>Diferença</th></tr></thead><tbody>'+
     '<tr><td>IRPJ</td><td>'+fmtN(irpjTot)+'</td><td><div class="money"><input id="pgIrpj" class="num" inputmode="decimal" value="'+(fc.irpj!=null?fmtN(fc.irpj):"")+'"></div></td><td>'+dif(fc.irpj, irpjTot)+'</td></tr>'+
     '<tr><td>CSLL</td><td>'+fmtN(S.csll)+'</td><td><div class="money"><input id="pgCsll" class="num" inputmode="decimal" value="'+(fc.csll!=null?fmtN(fc.csll):"")+'"></div></td><td>'+dif(fc.csll, S.csll)+'</td></tr></tbody></table>'+
@@ -407,7 +417,7 @@ function renderVendas(){
 
   function tile(l,v){ return '<div class="tile"><div class="lbl">'+l+'</div><div class="v num">'+v+'</div></div>'; }
 }
-$("selTri").addEventListener("change", renderVendas);
+$("selMes").addEventListener("change", renderVendas);
 $("busca").addEventListener("input", renderVendas);
 $("tbVendas").addEventListener("click", async e=>{
   const ed = e.target.closest("[data-ed]"), del = e.target.closest("[data-del]"), pdf = e.target.closest("[data-pdf]");
@@ -456,18 +466,20 @@ async function pdfDaVenda(v, emp){
 $("bPdfTri").addEventListener("click", async ()=>{
   const J = jsPDFpronto(); if(!J) return;
   const logo = await carregarLogo();
-  const tri = $("selTri").value;
+  const mes = $("selMes").value;
+  const tri = triDe(mes+"-01");
   const fid = empresa.replace(/[^A-Za-z0-9_-]/g,"_")+"-"+tri;
-  const lista = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda && triDe(v.valores.dataVenda)===tri).map(v=>({v, r:calcVenda(v)}));
-  const doc = RevendaPDF.relatorioTrimestre(J, {tri, empresas:[{nome:empresa, vendas:lista, fech:fechamentos[fid]||null}], adicLimite:Number(cfg.adicLimite), adic:Number(cfg.adic), logo});
-  const [y,q] = tri.split("-T");
-  entregarPDF(doc, "Relatorio-"+nomeArq(empresa)+"-"+q+"T"+y+".pdf");
+  const daEmp = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda);
+  const vendasMes = daEmp.filter(v=>mesDe(v.valores.dataVenda)===mes).map(v=>({v, r:calcVenda(v)}));
+  const vendasTri = daEmp.filter(v=>triDe(v.valores.dataVenda)===tri).map(v=>({v, r:calcVenda(v)}));
+  const doc = RevendaPDF.relatorioMes(J, {mes, empresa, vendasMes, vendasTri, fech:fechamentos[fid]||null, adicLimite:Number(cfg.adicLimite), adic:Number(cfg.adic), logo});
+  entregarPDF(doc, "Relatorio-"+nomeArq(empresa)+"-"+mes+".pdf");
 });
 
 /* ---------- CSV ---------- */
 $("bCsv").addEventListener("click", async ()=>{
-  const tri = $("selTri").value;
-  const rows = vendas.filter(v=>v.empresa===empresa && triDe(v.valores.dataVenda)===tri);
+  const mes = $("selMes").value;
+  const rows = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda && mesDe(v.valores.dataVenda)===mes).sort((a,b)=>a.valores.dataVenda.localeCompare(b.valores.dataVenda));
   const n = x => Number(x).toFixed(2).replace(".",",");
   const head = ["Empresa","Data venda","NF saída","Modelo","Placa","Renavam","Chassi","Data compra","NF entrada","Origem","Cliente","CPF/CNPJ","Endereço","Cidade","UF","Telefone","Compra","Custos","Venda","Lucro","BC IRPJ","IRPJ","BC CSLL","CSLL","PIS","COFINS","BC ICMS","ICMS","Total impostos","Líquido"];
   const q = s => '"'+String(s==null?"":s).replace(/"/g,'""')+'"';
@@ -475,7 +487,7 @@ $("bCsv").addEventListener("click", async ()=>{
     return [v.empresa,fmtData(x.dataVenda),x.nfSaida,ve.modelo,ve.placa,ve.renavam,ve.chassi,fmtData(ve.dataCompra),ve.nfEntrada,ve.origem,c.nome,c.doc,c.endereco,c.cidade,c.uf,c.telefone].map(q)
       .concat([x.compra,x.custos||0,x.venda,r.lucro,r.bcIrpj,r.irpj,r.bcCsll,r.csll,r.pis,r.cofins,r.bcIcms,r.icms,r.total,r.liquido].map(n)).join(";"); }));
   const csv = "﻿" + lines.join("\r\n");
-  const nome = "vendas-"+empresa+"-"+tri+".csv";
+  const nome = "vendas-"+empresa+"-"+mes+".csv";
   try{
     const dl = window.claude ? await window.claude.use("downloads") : null;
     if(dl){ await dl.save({filename:nome, data:csv}); return; }

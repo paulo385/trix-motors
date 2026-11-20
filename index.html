@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=7">
+<link rel="manifest" href="manifest.json?v=8">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -33,7 +33,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -56,7 +56,7 @@
   </div>
   <nav class="tabs" aria-label="Seções">
     <a href="#nova" data-v="nova"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Nova venda</span></a>
-    <a href="#vendas" data-v="vendas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg><span>Vendas<span class="lg"> e fechamento</span></span></a>
+    <a href="#vendas" data-v="vendas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg><span>Vendas<span class="lg"> e impostos</span></span></a>
     <a href="#aliquotas" data-v="aliquotas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5L5 19M7.5 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm9 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><span>Alíquotas</span></a>
   </nav>
 </header>
@@ -126,7 +126,7 @@
 <!-- ============ VENDAS ============ -->
 <section class="view" id="v-vendas">
   <div class="toolbar">
-    <div class="f"><label for="selTri">Trimestre</label><select id="selTri"></select></div>
+    <div class="f"><label for="selMes">Mês</label><select id="selMes"></select></div>
     <div class="f" style="flex:1"><label for="busca">Buscar placa, modelo ou cliente</label><input id="busca" placeholder="Digite para filtrar"></div>
     <button class="btn primary" id="bPdfTri" type="button">RELATÓRIO PDF</button>
     <button class="btn" id="bCsv" type="button">Exportar CSV</button>
@@ -134,8 +134,8 @@
   <div class="tiles" id="tiles"></div>
   <div class="tablewrap"><table class="list" id="tbVendas"></table></div>
   <div class="fech">
-    <div class="card"><h2>Fechamento do trimestre</h2><div id="fechTab"></div></div>
-    <div class="card conf"><h2>Conferência com o DARF pago</h2><div id="confBox"></div></div>
+    <div class="card"><h2 id="fechTitulo">Impostos do mês</h2><div id="fechTab"></div></div>
+    <div class="card conf"><h2>Conferência com o DARF do trimestre</h2><div id="confBox"></div></div>
   </div>
 </section>
 
@@ -174,11 +174,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=7"></script>
-<script src="lib/supabase.js?v=7"></script>
-<script src="lib/jspdf.umd.min.js?v=7"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=7"></script>
-<script src="pdf.js?v=7"></script>
-<script src="script.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="lib/supabase.js?v=8"></script>
+<script src="lib/jspdf.umd.min.js?v=8"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=8"></script>
+<script src="pdf.js?v=8"></script>
+<script src="script.js?v=8"></script>
 </body>
 </html>
