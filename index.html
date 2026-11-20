@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=17">
+<link rel="manifest" href="manifest.json?v=18">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -32,7 +32,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -75,6 +75,7 @@
 </div>
 <!-- ============ NOVA VENDA ============ -->
 <section class="view" id="v-nova">
+  <div class="card meta-card" id="metaCard" hidden></div>
   <form id="form" class="grid-venda" novalidate>
     <div>
       <div class="card">
@@ -163,6 +164,12 @@
     <div class="fields" id="cfgFields"></div>
     <div class="actions"><button class="btn primary" id="bCfg" type="button">SALVAR ALÍQUOTAS</button><button class="btn" id="bCfgPadrao" type="button">Voltar ao padrão da planilha</button></div>
   </div>
+  <div class="card cfg">
+    <h2>Meta do mês</h2>
+    <p class="note" style="margin-top:0">Quanto a loja quer de <b>lucro líquido</b> (lucro − impostos) por mês. Aparece no topo da tela Nova venda, com o quanto já foi alcançado. Vale para todos os meses.</p>
+    <div class="fields"><div class="f"><label for="metaValor">Meta de lucro líquido por mês</label><div class="money"><input id="metaValor" class="num" inputmode="decimal" placeholder="0,00"></div></div></div>
+    <div class="actions"><button class="btn primary" id="bMeta" type="button">SALVAR META</button></div>
+  </div>
 </section>
 <!-- ============ USUÁRIOS (só administrador) ============ -->
 <section class="view" id="v-usuarios">
@@ -224,11 +231,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=17"></script>
-<script src="lib/supabase.js?v=17"></script>
-<script src="lib/jspdf.umd.min.js?v=17"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=17"></script>
-<script src="pdf.js?v=17"></script>
-<script src="script.js?v=17"></script>
+<script src="config.js?v=18"></script>
+<script src="lib/supabase.js?v=18"></script>
+<script src="lib/jspdf.umd.min.js?v=18"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=18"></script>
+<script src="pdf.js?v=18"></script>
+<script src="script.js?v=18"></script>
 </body>
 </html>

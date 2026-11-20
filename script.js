@@ -1,7 +1,7 @@
 (function(){
 "use strict";
 const $ = id => document.getElementById(id);
-const PADRAO = {irpjPres:0.08, irpj:0.15, csllPres:0.12, csll:0.09, pis:0.0065, cofins:0.03, icmsBase:0.05, icms:0.195, adicLimite:60000, adic:0.10, empresas:"TRIX"};
+const PADRAO = {irpjPres:0.08, irpj:0.15, csllPres:0.12, csll:0.09, pis:0.0065, cofins:0.03, icmsBase:0.05, icms:0.195, adicLimite:60000, adic:0.10, empresas:"TRIX", metaMes:0};
 const CFG_META = [
   ["irpjPres","Presunção IRPJ (% do lucro)",true],["irpj","Alíquota IRPJ",true],
   ["csllPres","Presunção CSLL (% do lucro)",true],["csll","Alíquota CSLL",true],
@@ -252,7 +252,7 @@ function preencher(v){
   $("vModelo").value=ve.modelo||""; $("vAno").value=ve.ano||""; $("vPlaca").value=ve.placa||""; $("vRenavam").value=ve.renavam||""; $("vChassi").value=ve.chassi||""; $("vOrigem").value=ve.origem||"Concessionária"; $("vDataCompra").value=ve.dataCompra||""; $("vNfEnt").value=ve.nfEntrada||"";
   $("xCompra").value= isFinite(x.compra)?fmtN(x.compra):""; $("xCustos").value= x.custos?fmtN(x.custos):""; $("xVenda").value= isFinite(x.venda)?fmtN(x.venda):""; $("xData").value=x.dataVenda||hoje(); $("xNf").value=x.nfSaida||""; $("xVendedor").value=x.vendedor||"";
 }
-function aliqAtuais(){ const a={}; for(const k of Object.keys(PADRAO)) if(k!=="empresas") a[k]=Number(cfg[k]); return a; }
+function aliqAtuais(){ const a={}; for(const k of Object.keys(PADRAO)) if(k!=="empresas" && k!=="metaMes") a[k]=Number(cfg[k]); return a; }
 
 $("form").addEventListener("submit", e=>{
   e.preventDefault();
@@ -522,13 +522,60 @@ $("bCfg").addEventListener("click", async ()=>{
     if(k==="empresas"){ if(!raw.split(",").map(s=>s.trim()).filter(Boolean).length) erro="Informe ao menos uma empresa."; novo[k]=raw; continue; }
     const n=parseBRL(raw); if(isNaN(n)||n<0){ erro="Confira o campo "+l+"."; break; } novo[k]= pct ? n/100 : n; }
   if(erro){ toast(erro); return; }
+  novo.metaMes = Number(cfg.metaMes)||0;
   try{ await salvarCfg(novo); toast("Alíquotas salvas"); }catch(e){ toast(e && e.code==="offline" ? msgErro(e,"") : "Só o administrador pode alterar as alíquotas"); }
 });
-$("bCfgPadrao").addEventListener("click", ()=>{ const keep=cfg.empresas; cfg={...PADRAO, empresas:keep}; renderCfg(); toast("Valores da planilha carregados. Aperte Salvar para gravar."); });
+$("bCfgPadrao").addEventListener("click", ()=>{ const keep=cfg.empresas, meta=cfg.metaMes; cfg={...PADRAO, empresas:keep, metaMes:meta}; renderCfg(); toast("Valores da planilha carregados. Aperte Salvar para gravar."); });
+
+/* ---------- meta do mês ---------- */
+$("bMeta").addEventListener("click", async ()=>{
+  const n = parseBRL($("metaValor").value || "0");
+  if(isNaN(n) || n<0){ toast("Confira o valor da meta."); return; }
+  const novo = {...cfg, metaMes:n};
+  try{ await salvarCfg(novo); toast(n ? "Meta salva: "+fmtBRL(n)+" por mês" : "Meta removida"); }
+  catch(e){ toast(e && e.code==="offline" ? msgErro(e,"") : "Só o administrador pode alterar a meta"); }
+});
+function renderMeta(){
+  const card = $("metaCard"); if(!card) return;
+  if(document.activeElement !== $("metaValor")) $("metaValor").value = Number(cfg.metaMes) ? fmtN(Number(cfg.metaMes)) : "";
+  const meta = Number(cfg.metaMes)||0;
+  const mes = mesDe(hoje()), ant = somaMes(mes, -1);
+  const daEmp = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda);
+  const soma = k => { const A={n:0, venda:0, liquido:0, total:0}; daEmp.filter(v=>mesDe(v.valores.dataVenda)===k).forEach(v=>{ const r=calcVenda(v); A.n++; A.venda+=Number(v.valores.venda)||0; A.liquido+=r.liquido||0; A.total+=r.total||0; }); return A; };
+  const S = soma(mes), P = soma(ant);
+  if(!meta && !S.n && !P.n){ card.hidden = true; return; }
+  card.hidden = false;
+  const [y,m] = mes.split("-").map(Number);
+  const diasFim = new Date(y, m, 0).getDate() - new Date().getDate();
+  const nomeMes = MESES_NOME[m-1].toLowerCase(), nomeAnt = MESES_NOME[Number(ant.slice(5))-1].toLowerCase();
+  const pct = meta ? S.liquido/meta*100 : 0, bateu = meta && pct>=100;
+  const C = 2*Math.PI*52, arco = Math.max(0, Math.min(pct,100))/100*C;
+  const med = A => A.n ? A.liquido/A.n : 0;
+  const delta = (a,b,dinheiro) => { if(!b) return '<span class="dl neu">novo</span>'; const d=(a-b)/Math.abs(b)*100; if(Math.abs(d)<0.5) return '<span class="dl neu">igual</span>';
+    return '<span class="dl '+(d>0?"up":"down")+'">'+(d>0?"▲ ":"▼ ")+Math.abs(d).toLocaleString("pt-BR",{maximumFractionDigits:0})+'%</span>'; };
+  const dN = (a,b) => { const d=a-b; return '<span class="dl '+(d>0?"up":d<0?"down":"neu")+'">'+(d>0?"▲ "+d:d<0?"▼ "+(-d):"igual")+'</span>'; };
+  const ringHtml = meta ? '<div class="meta-ring"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trilho"/><circle cx="60" cy="60" r="52" class="arco'+(bateu?" ok":"")+'" stroke-dasharray="'+arco.toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 60 60)"/></svg><div class="meta-pct"><b>'+Math.round(pct)+'%</b><small>da meta</small></div></div>' : '';
+  const falta = meta - S.liquido;
+  const dica = !meta ? (ehAdmin||modo==="local" ? 'Defina uma meta de lucro em <a href="#aliquotas">Alíquotas</a> para acompanhar aqui.' : 'O administrador ainda não definiu uma meta.')
+    : bateu ? 'Meta batida! Parabéns à equipe.'
+    : 'Faltam <b>'+fmtBRL(falta)+'</b>'+(diasFim>0 ? ' em '+diasFim+' dia'+(diasFim>1?"s":"") : ' hoje')+(med(S)||med(P) ? (n=>n===1?', cerca de 1 carro.':', uns '+n+' carros.')(Math.max(1,Math.ceil(falta/(med(S)||med(P))))) : '.');
+  card.innerHTML =
+    '<div class="meta-top">'+ringHtml+
+      '<div class="meta-info"><h2>'+(meta?"Meta de ":"Resumo de ")+nomeMes+'</h2>'+
+      (meta ? '<p class="meta-val"><b>'+fmtBRL(S.liquido)+'</b> <span>de '+fmtBRL(meta)+' de lucro líquido</span></p>' : '<p class="meta-val"><b>'+fmtBRL(S.liquido)+'</b> <span>de lucro líquido no mês</span></p>')+
+      '<p class="meta-dica'+(bateu?" ok":"")+'">'+dica+'</p></div>'+
+    '</div>'+
+    '<div class="meta-comp"><p class="meta-comp-t">Comparado com '+nomeAnt+'</p>'+
+      '<div class="mc"><span>Carros vendidos</span><b>'+S.n+'</b>'+dN(S.n,P.n)+'</div>'+
+      '<div class="mc"><span>Faturamento</span><b>'+fmtBRL(S.venda)+'</b>'+delta(S.venda,P.venda)+'</div>'+
+      '<div class="mc"><span>Lucro líquido</span><b>'+fmtBRL(S.liquido)+'</b>'+delta(S.liquido,P.liquido)+'</div>'+
+      '<div class="mc"><span>Lucro médio por carro</span><b>'+fmtBRL(med(S))+'</b>'+delta(med(S),med(P))+'</div>'+
+    '</div>';
+}
 
 /* ---------- render geral ---------- */
 function renderTudo(){
-  renderEmpresas(); renderVendas();
+  renderEmpresas(); renderVendas(); renderMeta();
   if(!document.activeElement || !document.activeElement.id || !document.activeElement.id.startsWith("cfg_")) renderCfg();
   setStatus();
 }
