@@ -588,7 +588,7 @@ function msgLogin(error){
 }
 function pararBanco(){
   if(canal && sb){ try{ sb.removeChannel(canal); }catch(e){} }
-  canal = null; usuario = null; ehAdmin = false;
+  canal = null; usuario = null; ehAdmin = false; pendVistos = null; avisoFechadoEm = -1; if($("avisoAdm")) $("avisoAdm").hidden = true;
   vendas = []; fechamentos = {}; cfg = {...PADRAO}; pedidos = []; membros = [];
   $("bSair").hidden = true; $("migrar").hidden = true; $("navUsuarios").hidden = true;
   if(location.hash==="#usuarios") location.hash = "#nova";
@@ -786,8 +786,50 @@ async function carregarUsuarios(){
 }
 function inicial(n){ return (String(n||"?").trim()[0]||"?").toUpperCase(); }
 function dataHora(iso){ if(!iso) return ""; const d=new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("pt-BR")+" às "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); }
+/* ---------- aviso ao administrador quando alguém cria conta ---------- */
+let pendVistos = null, avisoFechadoEm = -1;
+function avisarAdmin(pend){
+  const box = $("avisoAdm"); if(!box) return;
+  const emails = pend.map(p=>String(p.email).toLowerCase());
+  const novos = pendVistos ? pend.filter(p=>!pendVistos.has(String(p.email).toLowerCase())) : [];
+  pendVistos = new Set(emails);
+  if(novos.length) avisoFechadoEm = -1;
+  const naAba = (location.hash||"").slice(1)==="usuarios";
+  if(!pend.length || naAba || avisoFechadoEm===pend.length){ box.hidden = true; return; }
+  const nomes = pend.slice(0,3).map(p=>p.nome||p.email).join(", ") + (pend.length>3 ? " e mais "+(pend.length-3) : "");
+  $("avisoAdmTxt").innerHTML = pend.length===1
+    ? "<b>Novo pedido de acesso:</b> "+esc(nomes)+" criou uma conta e aguarda sua aprovação."
+    : "<b>"+pend.length+" pedidos de acesso</b> aguardando aprovação: "+esc(nomes)+".";
+  $("avisoAdmNotif").hidden = !("Notification" in window) || Notification.permission!=="default";
+  box.hidden = false;
+  if(novos.length){
+    box.classList.remove("novo"); void box.offsetWidth; box.classList.add("novo");
+    const n = novos[0], titulo = "Trix Motors · novo pedido de acesso";
+    const corpo = (novos.length===1 ? (n.nome||n.email)+" criou uma conta" : novos.length+" pessoas criaram conta")+" e aguarda aprovação.";
+    toast(corpo);
+    notificarSistema(titulo, corpo);
+  }
+}
+function notificarSistema(titulo, corpo){
+  if(!("Notification" in window) || Notification.permission!=="granted") return;
+  const op = {body:corpo, icon:"icons/icon-192.png", badge:"icons/icon-192.png", tag:"trix-pedido", data:{url:"./#usuarios"}};
+  if(navigator.serviceWorker && navigator.serviceWorker.ready){
+    navigator.serviceWorker.ready.then(r=>r.showNotification(titulo, op)).catch(()=>{ try{ new Notification(titulo, op); }catch(e){} });
+  } else { try{ new Notification(titulo, op); }catch(e){} }
+}
+document.addEventListener("click", e=>{
+  if(e.target.closest("#avisoAdmFechar")){ avisoFechadoEm = pedidos.filter(p=>p.status==="pendente").length; $("avisoAdm").hidden = true; }
+  else if(e.target.closest("#avisoAdmVer")){ $("avisoAdm").hidden = true; }
+  else if(e.target.closest("#avisoAdmNotif")){
+    Notification.requestPermission().then(r=>{ $("avisoAdmNotif").hidden = true;
+      toast(r==="granted" ? "Pronto! Você será avisado quando alguém criar uma conta." : "Avisos bloqueados. Dá para liberar nas configurações do navegador."); });
+  }
+});
+window.addEventListener("hashchange", ()=>{ if(ehAdmin) avisarAdmin(pedidos.filter(p=>p.status==="pendente")); });
+
 function renderUsuarios(){
   const pend = pedidos.filter(p=>p.status==="pendente"), rec = pedidos.filter(p=>p.status==="recusado");
+  avisarAdmin(pend);
   $("qtdPend").textContent = pend.length;
   $("badgePend").textContent = pend.length; $("badgePend").hidden = !pend.length;
   $("listaPend").innerHTML = pend.length ? pend.map(p=>

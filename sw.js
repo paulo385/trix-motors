@@ -1,18 +1,18 @@
 /* Service worker: deixa o app abrir rápido e funcionar sem internet.
    Busca sempre a versão nova quando há internet; sem internet, usa a cópia guardada.
    Ao publicar mudanças, aumente VERSAO aqui e o ?v= no index.html. */
-const VERSAO = "trix-v14";
+const VERSAO = "trix-v15";
 const ARQUIVOS = [
   "./",
   "./index.html",
-  "./style.css?v=14",
-  "./config.js?v=14",
-  "./lib/supabase.js?v=14",
-  "./script.js?v=14",
-  "./pdf.js?v=14",
-  "./manifest.json?v=14",
-  "./lib/jspdf.umd.min.js?v=14",
-  "./lib/jspdf.plugin.autotable.min.js?v=14",
+  "./style.css?v=15",
+  "./config.js?v=15",
+  "./lib/supabase.js?v=15",
+  "./script.js?v=15",
+  "./pdf.js?v=15",
+  "./manifest.json?v=15",
+  "./lib/jspdf.umd.min.js?v=15",
+  "./lib/jspdf.plugin.autotable.min.js?v=15",
   "./privacidade.html",
   "./fonts/barlow-semi-condensed-latin-500-normal.woff2",
   "./fonts/barlow-semi-condensed-latin-600-normal.woff2",
@@ -58,4 +58,14 @@ self.addEventListener("fetch", e => {
       return r;
     }).catch(() => caches.match(req.mode === "navigate" ? "./index.html" : req, { ignoreSearch: req.mode === "navigate" }))
   );
+});
+
+// Toque no aviso "novo pedido de acesso": abre o app na aba Usuários
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const alvo = new URL((e.notification.data && e.notification.data.url) || "./#usuarios", self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(lista => {
+    for (const c of lista) { if ("focus" in c) { c.navigate(alvo).catch(() => {}); return c.focus(); } }
+    return clients.openWindow(alvo);
+  }));
 });
