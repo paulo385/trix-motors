@@ -35,8 +35,8 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-html{font-size:17.5px}   /* tamanho base das letras: aumente aqui para tudo crescer junto */
-body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:17.5px;line-height:1.45}
+html{font-size:19px}   /* tamanho base das letras: aumente aqui para tudo crescer junto */
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:19px;line-height:1.45}
 h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;letter-spacing:.01em}
 .num{font-variant-numeric:tabular-nums}
 button,input,select{font:inherit;color:inherit}
@@ -183,8 +183,8 @@ header.top{padding-top:env(safe-area-inset-top)}
 }
 
 @media (max-width:720px){
-  body{font-size:17px}
-  input,select{font-size:17px;padding:11px 12px}          /* evita zoom automático no iPhone */
+  body{font-size:18px}
+  input,select{font-size:18px;padding:11px 12px}          /* evita zoom automático no iPhone */
   .btn{min-height:44px}
   .btn.sm{min-height:36px}
 
@@ -219,7 +219,9 @@ header.top{padding-top:env(safe-area-inset-top)}
   .tile .v{font-size:1.2rem}
   .tile:first-child{grid-column:span 2}
   .toolbar .f{min-width:0;flex:1 1 100% !important}
-  .toolbar .btn{flex:1}
+  .toolbar .btn{flex:1;white-space:nowrap}
+  .toolbar .btn.primary{padding:10px 14px}
+  .list td.vazio-mes{grid-column:1 / -1;display:block;text-align:left;padding:16px 4px !important}
 
   /* histórico em cartões */
   .tablewrap{border:0;background:transparent;overflow:visible}

@@ -370,7 +370,7 @@ function renderVendas(){
     tile("Lucro bruto", fmtBRL(S.lucro)) + tile("Impostos", fmtBRL(S.total)) + tile("Líquido", fmtBRL(S.liquido));
 
   if(!vis.length){
-    $("tbVendas").innerHTML = '<tbody><tr><td class="l" style="padding:28px;color:var(--muted);white-space:normal">'+(doMes.length?"Nenhuma venda encontrada para essa busca.":"Nenhuma venda de "+esc(empresa)+" neste mês. Cadastre em <a href=\"#nova\">Nova venda</a>.")+'</td></tr></tbody>';
+    $("tbVendas").innerHTML = '<tbody><tr><td class="l vazio-mes" style="padding:28px;color:var(--muted);white-space:normal">'+(doMes.length?"Nenhuma venda encontrada para essa busca.":"Nenhuma venda de "+esc(empresa)+" neste mês. Cadastre em <a href=\"#nova\">Nova venda</a>.")+'</td></tr></tbody>';
   } else {
     let T={c:0,v:0,l:0,i:0,q:0};
     $("tbVendas").innerHTML = '<thead><tr><th class="l">Data</th><th class="l">Veículo</th><th class="l">Cliente</th><th>Compra</th><th>Venda</th><th>Lucro</th><th>Impostos</th><th>Líquido</th><th>% s/ lucro</th><th></th></tr></thead><tbody class="num">'+
