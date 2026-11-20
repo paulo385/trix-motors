@@ -9,7 +9,7 @@
    correção ou exclusão dos seus dados (LGPD). Aparece no rodapé do app e na
    página de privacidade. Preencha entre as aspas, ex.: "privacidade@sualoja.com.br". */
 window.TRIX_CONFIG = {
-  supabaseUrl: "https://pupijwvgzzmejtdbwjob.supabase.co",
-  supabaseKey: "sb_publishable_AAbLRekV3QbgL7TDstWv2w_IWhWOlF8",
+  supabaseUrl: "https://zvkqsbivctgdifbcqdfa.supabase.co",
+  supabaseKey: "sb_publishable_l-IFc5myS40aBAxpImY7jQ__I2N9qGG",
   canalPrivacidade: "guto.pands@gmail.com",
 };
