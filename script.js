@@ -525,20 +525,53 @@ $("bCfg").addEventListener("click", async ()=>{
     if(k==="empresas"){ if(!raw.split(",").map(s=>s.trim()).filter(Boolean).length) erro="Informe ao menos uma empresa."; novo[k]=raw; continue; }
     const n=parseBRL(raw); if(isNaN(n)||n<0){ erro="Confira o campo "+l+"."; break; } novo[k]= pct ? n/100 : n; }
   if(erro){ toast(erro); return; }
-  novo.metaMes = Number(cfg.metaMes)||0;
+  novo.metaMes = Number(cfg.metaMes)||0; novo.metasVend = metasVendedores();
   try{ await salvarCfg(novo); toast("Alíquotas salvas"); }catch(e){ toast(e && e.code==="offline" ? msgErro(e,"") : "Só o administrador pode alterar as alíquotas"); }
 });
-$("bCfgPadrao").addEventListener("click", ()=>{ const keep=cfg.empresas, meta=cfg.metaMes; cfg={...PADRAO, empresas:keep, metaMes:meta}; renderCfg(); toast("Valores da planilha carregados. Aperte Salvar para gravar."); });
+$("bCfgPadrao").addEventListener("click", ()=>{ const keep=cfg.empresas, meta=cfg.metaMes, mv=cfg.metasVend; cfg={...PADRAO, empresas:keep, metaMes:meta, metasVend:mv}; renderCfg(); toast("Valores da planilha carregados. Aperte Salvar para gravar."); });
 
 /* ---------- meta do mês ---------- */
 $("bMeta").addEventListener("click", async ()=>{
   const n = parseBRL($("metaValor").value || "0");
   if(isNaN(n) || n<0){ toast("Confira o valor da meta."); return; }
-  const novo = {...cfg, metaMes:n};
-  try{ await salvarCfg(novo); toast(n ? "Meta salva: "+fmtBRL(n)+" por mês" : "Meta removida"); }
+  const metasVend = []; let erroV = null;
+  document.querySelectorAll("#metaVendLista .mv-linha").forEach(l=>{
+    const nome = l.querySelector(".mv-nome").value.trim(), raw = l.querySelector(".mv-meta").value.trim();
+    if(!nome && !raw) return;
+    const mv = parseBRL(raw || "0");
+    if(!nome){ erroV = "Falta o nome de um vendedor."; return; }
+    if(isNaN(mv) || mv<0){ erroV = "Confira a meta de "+nome+"."; return; }
+    if(metasVend.some(x=>x.nome.toLowerCase()===nome.toLowerCase())){ erroV = nome+" aparece duas vezes."; return; }
+    metasVend.push({nome, meta:mv});
+  });
+  if(erroV){ toast(erroV); return; }
+  const novo = {...cfg, metaMes:n, metasVend};
+  try{ await salvarCfg(novo); metaVendSujo = false; renderMetaVendForm(); toast("Metas salvas"); }
   catch(e){ toast(e && e.code==="offline" ? msgErro(e,"") : "Só o administrador pode alterar a meta"); }
 });
+let metaVendSujo = false;
+function metasVendedores(){ return Array.isArray(cfg.metasVend) ? cfg.metasVend.filter(x=>x && x.nome) : []; }
+function linhaMetaVend(nome, meta){
+  return '<div class="mv-linha"><input class="mv-nome" placeholder="Nome do vendedor" value="'+esc(nome||"")+'" aria-label="Nome do vendedor">'+
+    '<div class="money"><input class="mv-meta num" inputmode="decimal" placeholder="0,00" value="'+(meta?fmtN(meta):"")+'" aria-label="Meta do vendedor"></div>'+
+    '<button type="button" class="btn sm mv-del" aria-label="Remover vendedor">✕</button></div>';
+}
+function renderMetaVendForm(){
+  const box = $("metaVendLista"); if(!box || metaVendSujo) return;
+  const L = metasVendedores();
+  box.innerHTML = L.length ? L.map(x=>linhaMetaVend(x.nome, x.meta)).join("") : linhaMetaVend("", 0);
+}
+$("bAddVend").addEventListener("click", ()=>{ metaVendSujo = true; $("metaVendLista").insertAdjacentHTML("beforeend", linhaMetaVend("",0)); $("metaVendLista").lastElementChild.querySelector(".mv-nome").focus(); });
+$("metaVendLista").addEventListener("input", ()=>{ metaVendSujo = true; });
+$("metaVendLista").addEventListener("click", e=>{ const b=e.target.closest(".mv-del"); if(!b) return; metaVendSujo = true; b.closest(".mv-linha").remove(); if(!$("metaVendLista").children.length) $("metaVendLista").innerHTML = linhaMetaVend("",0); });
+function renderListaVendedores(){
+  const nomes = new Map();
+  metasVendedores().forEach(x=>nomes.set(x.nome.toLowerCase(), x.nome));
+  vendas.forEach(v=>{ const n=(v.valores&&v.valores.vendedor||"").trim(); if(n && !nomes.has(n.toLowerCase())) nomes.set(n.toLowerCase(), n); });
+  $("listaVendedores").innerHTML = [...nomes.values()].sort((a,b)=>a.localeCompare(b,"pt-BR")).map(n=>'<option value="'+esc(n)+'"></option>').join("");
+}
 function renderMeta(){
+  renderMetaVendForm(); renderListaVendedores();
   const card = $("metaCard"); if(!card) return;
   if(document.activeElement !== $("metaValor")) $("metaValor").value = Number(cfg.metaMes) ? fmtN(Number(cfg.metaMes)) : "";
   const meta = Number(cfg.metaMes)||0;
@@ -546,7 +579,9 @@ function renderMeta(){
   const daEmp = vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda);
   const soma = k => { const A={n:0, venda:0, liquido:0, total:0}; daEmp.filter(v=>mesDe(v.valores.dataVenda)===k).forEach(v=>{ const r=calcVenda(v); A.n++; A.venda+=Number(v.valores.venda)||0; A.liquido+=r.liquido||0; A.total+=r.total||0; }); return A; };
   const S = soma(mes), P = soma(ant);
-  if(!meta && !S.n && !P.n){ card.hidden = true; return; }
+  const MV = metasVendedores();
+  const porVend = MV.map(x=>{ const A={n:0, liquido:0}; daEmp.filter(v=>mesDe(v.valores.dataVenda)===mes && (v.valores.vendedor||"").trim().toLowerCase()===x.nome.toLowerCase()).forEach(v=>{ A.n++; A.liquido+=calcVenda(v).liquido||0; }); return {...x, ...A}; });
+  if(!meta && !S.n && !P.n && !MV.length){ card.hidden = true; return; }
   card.hidden = false;
   const [y,m] = mes.split("-").map(Number);
   const diasFim = new Date(y, m, 0).getDate() - new Date().getDate();
@@ -573,7 +608,13 @@ function renderMeta(){
       '<div class="mc"><span>Faturamento</span><b>'+fmtBRL(S.venda)+'</b>'+delta(S.venda,P.venda)+'</div>'+
       '<div class="mc"><span>Lucro líquido</span><b>'+fmtBRL(S.liquido)+'</b>'+delta(S.liquido,P.liquido)+'</div>'+
       '<div class="mc"><span>Lucro médio por carro</span><b>'+fmtBRL(med(S))+'</b>'+delta(med(S),med(P))+'</div>'+
-    '</div>';
+    '</div>'+
+    (porVend.length ? '<div class="meta-vend"><p class="meta-comp-t">Metas por vendedor</p>'+
+      porVend.sort((a,b)=>(b.meta?b.liquido/b.meta:0)-(a.meta?a.liquido/a.meta:0)).map(x=>{ const p = x.meta ? x.liquido/x.meta*100 : 0, ok = x.meta && p>=100;
+        return '<div class="mv"><div class="mv-top"><span class="ava">'+esc(inicial(x.nome))+'</span><b>'+esc(x.nome)+'</b><span class="mv-num">'+fmtBRL(x.liquido)+(x.meta?' <small>de '+fmtBRL(x.meta)+'</small>':'')+'</span></div>'+
+          '<div class="mv-bar"><i class="'+(ok?"ok":"")+'" style="width:'+Math.min(100,Math.max(0,p)).toFixed(1)+'%"></i></div>'+
+          '<small class="mv-sub">'+x.n+' carro'+(x.n===1?"":"s")+(x.meta ? ' · '+Math.round(p)+'% da meta'+(ok?' · meta batida!':'') : '')+'</small></div>'; }).join("")+
+    '</div>' : '');
 }
 
 /* ---------- render geral ---------- */

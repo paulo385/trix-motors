@@ -358,3 +358,20 @@ header.top{padding-top:env(safe-area-inset-top)}
   #v-nova .result:not(.on){display:none}
   #vPlaca{font-size:1.4rem;padding:14px 12px}
 }
+
+/* Metas por vendedor */
+.meta-sub{font-family:var(--font-display);font-size:1.05rem;margin:18px 0 4px}
+.mv-linha{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;margin-bottom:8px;align-items:center}
+.mv-linha .mv-del{min-width:44px;min-height:42px}
+.meta-vend{grid-column:1 / -1;border-top:1px solid var(--line);padding-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px 24px}
+.meta-vend .meta-comp-t{grid-column:1 / -1}
+.mv-top{display:flex;align-items:center;gap:10px}
+.mv-top .ava{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);font-weight:700;font-size:.85rem;flex:none}
+.mv-top b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-num{font-weight:700;font-size:.9rem;white-space:nowrap}
+.mv-num small{color:var(--muted);font-weight:400}
+.mv-bar{height:8px;border-radius:4px;background:var(--line);margin:6px 0 3px;overflow:hidden}
+.mv-bar i{display:block;height:100%;border-radius:4px;background:var(--accent);transition:width .8s ease}
+.mv-bar i.ok{background:var(--good)}
+.mv-sub{color:var(--muted);font-size:.8rem}
+@media (max-width:720px){ .mv-linha{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) 44px;gap:6px} .mv-linha .mv-meta{font-size:16px} }
