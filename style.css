@@ -375,3 +375,6 @@ header.top{padding-top:env(safe-area-inset-top)}
 .mv-bar i.ok{background:var(--good)}
 .mv-sub{color:var(--muted);font-size:.8rem}
 @media (max-width:720px){ .mv-linha{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) 44px;gap:6px} .mv-linha .mv-meta{font-size:16px} }
+.mv-linha .qtd{position:relative}
+.mv-linha .qtd input{width:100%;padding-right:62px;text-align:right}
+.mv-linha .qtd span{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;pointer-events:none}

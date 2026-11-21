@@ -538,11 +538,11 @@ $("bMeta").addEventListener("click", async ()=>{
   document.querySelectorAll("#metaVendLista .mv-linha").forEach(l=>{
     const nome = l.querySelector(".mv-nome").value.trim(), raw = l.querySelector(".mv-meta").value.trim();
     if(!nome && !raw) return;
-    const mv = parseBRL(raw || "0");
+    const qtd = raw==="" ? 0 : Number(raw);
     if(!nome){ erroV = "Falta o nome de um vendedor."; return; }
-    if(isNaN(mv) || mv<0){ erroV = "Confira a meta de "+nome+"."; return; }
+    if(!Number.isInteger(qtd) || qtd<0){ erroV = "A meta de "+nome+" deve ser um número inteiro de carros."; return; }
     if(metasVend.some(x=>x.nome.toLowerCase()===nome.toLowerCase())){ erroV = nome+" aparece duas vezes."; return; }
-    metasVend.push({nome, meta:mv});
+    metasVend.push({nome, carros:qtd});
   });
   if(erroV){ toast(erroV); return; }
   const novo = {...cfg, metaMes:n, metasVend};
@@ -551,15 +551,15 @@ $("bMeta").addEventListener("click", async ()=>{
 });
 let metaVendSujo = false;
 function metasVendedores(){ return Array.isArray(cfg.metasVend) ? cfg.metasVend.filter(x=>x && x.nome) : []; }
-function linhaMetaVend(nome, meta){
+function linhaMetaVend(nome, carros){
   return '<div class="mv-linha"><input class="mv-nome" placeholder="Nome do vendedor" value="'+esc(nome||"")+'" aria-label="Nome do vendedor">'+
-    '<div class="money"><input class="mv-meta num" inputmode="decimal" placeholder="0,00" value="'+(meta?fmtN(meta):"")+'" aria-label="Meta do vendedor"></div>'+
+    '<div class="qtd"><input class="mv-meta num" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="'+(carros||"")+'" aria-label="Meta de carros do vendedor"><span>carros</span></div>'+
     '<button type="button" class="btn sm mv-del" aria-label="Remover vendedor">✕</button></div>';
 }
 function renderMetaVendForm(){
   const box = $("metaVendLista"); if(!box || metaVendSujo) return;
   const L = metasVendedores();
-  box.innerHTML = L.length ? L.map(x=>linhaMetaVend(x.nome, x.meta)).join("") : linhaMetaVend("", 0);
+  box.innerHTML = L.length ? L.map(x=>linhaMetaVend(x.nome, x.carros)).join("") : linhaMetaVend("", 0);
 }
 $("bAddVend").addEventListener("click", ()=>{ metaVendSujo = true; $("metaVendLista").insertAdjacentHTML("beforeend", linhaMetaVend("",0)); $("metaVendLista").lastElementChild.querySelector(".mv-nome").focus(); });
 $("metaVendLista").addEventListener("input", ()=>{ metaVendSujo = true; });
@@ -610,10 +610,10 @@ function renderMeta(){
       '<div class="mc"><span>Lucro médio por carro</span><b>'+fmtBRL(med(S))+'</b>'+delta(med(S),med(P))+'</div>'+
     '</div>'+
     (porVend.length ? '<div class="meta-vend"><p class="meta-comp-t">Metas por vendedor</p>'+
-      porVend.sort((a,b)=>(b.meta?b.liquido/b.meta:0)-(a.meta?a.liquido/a.meta:0)).map(x=>{ const p = x.meta ? x.liquido/x.meta*100 : 0, ok = x.meta && p>=100;
-        return '<div class="mv"><div class="mv-top"><span class="ava">'+esc(inicial(x.nome))+'</span><b>'+esc(x.nome)+'</b><span class="mv-num">'+fmtBRL(x.liquido)+(x.meta?' <small>de '+fmtBRL(x.meta)+'</small>':'')+'</span></div>'+
+      porVend.sort((a,b)=>(b.carros?b.n/b.carros:0)-(a.carros?a.n/a.carros:0) || b.n-a.n).map(x=>{ const m = Number(x.carros)||0, p = m ? x.n/m*100 : 0, ok = m && x.n>=m, falta = m - x.n;
+        return '<div class="mv"><div class="mv-top"><span class="ava">'+esc(inicial(x.nome))+'</span><b>'+esc(x.nome)+'</b><span class="mv-num">'+x.n+(m?' <small>de '+m+' carro'+(m===1?"":"s")+'</small>':' <small>carro'+(x.n===1?"":"s")+'</small>')+'</span></div>'+
           '<div class="mv-bar"><i class="'+(ok?"ok":"")+'" style="width:'+Math.min(100,Math.max(0,p)).toFixed(1)+'%"></i></div>'+
-          '<small class="mv-sub">'+x.n+' carro'+(x.n===1?"":"s")+(x.meta ? ' · '+Math.round(p)+'% da meta'+(ok?' · meta batida!':'') : '')+'</small></div>'; }).join("")+
+          '<small class="mv-sub">'+(m ? (ok ? 'Meta batida!' : 'Falta'+(falta>1?'m ':' ')+falta+' carro'+(falta>1?'s':''))+' · ' : '')+fmtBRL(x.liquido)+' de lucro líquido</small></div>'; }).join("")+
     '</div>' : '');
 }
 

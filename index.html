@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=21">
+<link rel="manifest" href="manifest.json?v=22">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -32,7 +32,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -168,7 +168,7 @@
     <p class="note" style="margin-top:0">Quanto a loja quer de <b>lucro líquido</b> (lucro − impostos) por mês. Aparece no topo da tela Nova venda, com o quanto já foi alcançado. Vale para todos os meses.</p>
     <div class="fields"><div class="f"><label for="metaValor">Meta de lucro líquido por mês</label><div class="money"><input id="metaValor" class="num" inputmode="decimal" placeholder="0,00"></div></div></div>
     <h3 class="meta-sub">Meta por vendedor</h3>
-    <p class="note" style="margin-top:0">Lucro líquido que cada vendedor deve trazer no mês. Conta as vendas em que o campo <b>Vendedor</b> está com esse nome (o app sugere os nomes ao digitar).</p>
+    <p class="note" style="margin-top:0">Quantos carros cada vendedor deve vender no mês. Conta as vendas em que o campo <b>Vendedor</b> está com esse nome (o app sugere os nomes ao digitar).</p>
     <div id="metaVendLista"></div>
     <button class="btn" id="bAddVend" type="button">+ Adicionar vendedor</button>
     <div class="actions"><button class="btn primary" id="bMeta" type="button">SALVAR METAS</button></div>
@@ -234,11 +234,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=21"></script>
-<script src="lib/supabase.js?v=21"></script>
-<script src="lib/jspdf.umd.min.js?v=21"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=21"></script>
-<script src="pdf.js?v=21"></script>
-<script src="script.js?v=21"></script>
+<script src="config.js?v=22"></script>
+<script src="lib/supabase.js?v=22"></script>
+<script src="lib/jspdf.umd.min.js?v=22"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=22"></script>
+<script src="pdf.js?v=22"></script>
+<script src="script.js?v=22"></script>
 </body>
 </html>
