@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=18">
+<link rel="manifest" href="manifest.json?v=19">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -32,7 +32,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -80,7 +80,6 @@
     <div>
       <div class="card">
         <h2><span class="step">1</span>Cliente</h2>
-        <p class="aviso-lgpd">Avise o cliente: os dados são usados para a venda, a nota fiscal e a transferência do veículo. <a href="privacidade.html" target="_blank" rel="noopener">Como cuidamos dos dados</a></p>
         <div class="fields">
           <div class="f s4"><label for="cNome">Nome completo <span class="req">*</span></label><input id="cNome" autocomplete="off" placeholder="Nome do comprador"></div>
           <div class="f s2"><label for="cCpf">CPF / CNPJ</label><input id="cCpf" inputmode="numeric" placeholder="000.000.000-00"><span class="hint" id="hCpf"></span></div>
@@ -198,7 +197,7 @@
     <div id="listaRecusados"></div>
   </div>
 </section>
-<footer class="rodape-app"><a href="privacidade.html" target="_blank" rel="noopener">Privacidade e proteção de dados</a><span id="rodapeCanal"></span></footer>
+<footer class="rodape-app"><a href="privacidade.html" target="_blank" rel="noopener">Privacidade e proteção de dados</a></footer>
 </main>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
@@ -231,11 +230,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=18"></script>
-<script src="lib/supabase.js?v=18"></script>
-<script src="lib/jspdf.umd.min.js?v=18"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=18"></script>
-<script src="pdf.js?v=18"></script>
-<script src="script.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="lib/supabase.js?v=19"></script>
+<script src="lib/jspdf.umd.min.js?v=19"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=19"></script>
+<script src="pdf.js?v=19"></script>
+<script src="script.js?v=19"></script>
 </body>
 </html>
