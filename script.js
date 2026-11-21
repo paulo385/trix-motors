@@ -581,7 +581,7 @@ function renderMeta(){
   const S = soma(mes), P = soma(ant);
   const MV = metasVendedores();
   const porVend = MV.map(x=>{ const A={n:0, liquido:0}; daEmp.filter(v=>mesDe(v.valores.dataVenda)===mes && (v.valores.vendedor||"").trim().toLowerCase()===x.nome.toLowerCase()).forEach(v=>{ A.n++; A.liquido+=calcVenda(v).liquido||0; }); return {...x, ...A}; });
-  if(!meta && !S.n && !P.n && !MV.length){ card.hidden = true; return; }
+  if(!meta && !MV.some(x=>Number(x.carros)>0)){ card.hidden = true; return; }   // sem meta da loja nem de vendedor: painel some
   card.hidden = false;
   const [y,m] = mes.split("-").map(Number);
   const diasFim = new Date(y, m, 0).getDate() - new Date().getDate();
