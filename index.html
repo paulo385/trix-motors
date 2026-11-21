@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=19">
+<link rel="manifest" href="manifest.json?v=20">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -32,7 +32,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -78,7 +78,7 @@
   <div class="card meta-card" id="metaCard" hidden></div>
   <form id="form" class="grid-venda" novalidate>
     <div>
-      <div class="card">
+      <div class="card so-pc">
         <h2><span class="step">1</span>Cliente</h2>
         <div class="fields">
           <div class="f s4"><label for="cNome">Nome completo <span class="req">*</span></label><input id="cNome" autocomplete="off" placeholder="Nome do comprador"></div>
@@ -91,22 +91,22 @@
       </div>
 
       <div class="card">
-        <h2><span class="step">2</span>Veículo</h2>
+        <h2><span class="step"><span class="so-pc">2</span><span class="so-cel">1</span></span>Veículo</h2>
         <div class="fields">
-          <div class="f s4"><label for="vModelo">Modelo <span class="req">*</span></label><input id="vModelo" placeholder="Ex.: Onix 1.0 LT"></div>
-          <div class="f s2"><label for="vAno">Ano/Modelo</label><input id="vAno" placeholder="2025/2025"></div>
+          <div class="f s4 so-pc"><label for="vModelo">Modelo <span class="req">*</span></label><input id="vModelo" placeholder="Ex.: Onix 1.0 LT"></div>
+          <div class="f s2 so-pc"><label for="vAno">Ano/Modelo</label><input id="vAno" placeholder="2025/2025"></div>
           <div class="f s2"><label for="vPlaca">Placa <span class="req">*</span></label><input id="vPlaca" class="placa-in" maxlength="8" placeholder="ABC1D23"><span class="hint" id="hPlaca"></span></div>
-          <div class="f s2"><label for="vRenavam">Renavam</label><input id="vRenavam" inputmode="numeric" maxlength="11" placeholder="11 dígitos"><span class="hint" id="hRenavam"></span></div>
-          <div class="f s2"><label for="vChassi">Chassi</label><input id="vChassi" maxlength="17" style="text-transform:uppercase"></div>
-          <div class="f s2"><label for="vOrigem">Origem da compra</label>
+          <div class="f s2 so-pc"><label for="vRenavam">Renavam</label><input id="vRenavam" inputmode="numeric" maxlength="11" placeholder="11 dígitos"><span class="hint" id="hRenavam"></span></div>
+          <div class="f s2 so-pc"><label for="vChassi">Chassi</label><input id="vChassi" maxlength="17" style="text-transform:uppercase"></div>
+          <div class="f s2 so-pc"><label for="vOrigem">Origem da compra</label>
             <select id="vOrigem"><option>Concessionária</option><option>Particular</option><option>Troca</option><option>Leilão</option><option>Outra</option></select></div>
-          <div class="f s2"><label for="vDataCompra">Data da compra</label><input id="vDataCompra" type="date"></div>
-          <div class="f s2"><label for="vNfEnt">NF de entrada</label><input id="vNfEnt" placeholder="Nº ou CONC."></div>
+          <div class="f s2 so-pc"><label for="vDataCompra">Data da compra</label><input id="vDataCompra" type="date"></div>
+          <div class="f s2 so-pc"><label for="vNfEnt">NF de entrada</label><input id="vNfEnt" placeholder="Nº ou CONC."></div>
         </div>
       </div>
 
       <div class="card">
-        <h2><span class="step">3</span>Valores da venda</h2>
+        <h2><span class="step"><span class="so-pc">3</span><span class="so-cel">2</span></span>Valores da venda</h2>
         <div class="fields">
           <div class="f s2"><label for="xCompra">Valor de compra <span class="req">*</span></label><div class="money"><input id="xCompra" class="num" inputmode="decimal" placeholder="0,00"></div></div>
           <div class="f s2"><label for="xCustos">Custos de preparação</label><div class="money"><input id="xCustos" class="num" inputmode="decimal" placeholder="0,00"></div><span class="hint">Funilaria, pneus, documentação…</span></div>
@@ -230,11 +230,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=19"></script>
-<script src="lib/supabase.js?v=19"></script>
-<script src="lib/jspdf.umd.min.js?v=19"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=19"></script>
-<script src="pdf.js?v=19"></script>
-<script src="script.js?v=19"></script>
+<script src="config.js?v=20"></script>
+<script src="lib/supabase.js?v=20"></script>
+<script src="lib/jspdf.umd.min.js?v=20"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=20"></script>
+<script src="pdf.js?v=20"></script>
+<script src="script.js?v=20"></script>
 </body>
 </html>

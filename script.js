@@ -237,7 +237,7 @@ function limpar(){
   ["hCpf","hPlaca","hRenavam"].forEach(h=>hint(h,""));
   $("xData").value = hoje(); $("formErr").textContent=""; editId=null; ultimo=null;
   $("bSalvar").disabled = true; $("bSalvar").textContent="Salvar venda";
-  renderResultado(null);
+  renderResultado(null); $("resultBox").classList.remove("on");
 }
 function lerForm(){
   return {
@@ -264,15 +264,17 @@ $("form").addEventListener("submit", e=>{
   const a = aliqAtuais();
   ultimo = {form:f, aliq:a, r:calcular(f.valores.compra, f.valores.venda, f.valores.custos, a)};
   $("bSalvar").disabled = false;
-  renderResultado(ultimo);
+  renderResultado(ultimo); $("resultBox").classList.add("on");
   if(window.innerWidth<=880) $("resultBox").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
 });
 
 $("bSalvar").addEventListener("click", async ()=>{
   if(!ultimo) return;
   const f = lerForm(); const falta=[];
-  if(!f.cliente.nome){ falta.push("nome do cliente"); $("cNome").classList.add("err"); } else $("cNome").classList.remove("err");
-  if(!f.veiculo.modelo){ falta.push("modelo"); $("vModelo").classList.add("err"); } else $("vModelo").classList.remove("err");
+  const celular = matchMedia("(max-width:720px)").matches;   // no celular só a placa e os valores são pedidos
+  if(celular){ $("cNome").classList.remove("err"); $("vModelo").classList.remove("err"); }
+  if(!celular && !f.cliente.nome){ falta.push("nome do cliente"); $("cNome").classList.add("err"); } else $("cNome").classList.remove("err");
+  if(!celular && !f.veiculo.modelo){ falta.push("modelo"); $("vModelo").classList.add("err"); } else $("vModelo").classList.remove("err");
   if(!placaOk(f.veiculo.placa)){ falta.push("placa válida"); $("vPlaca").classList.add("err"); } else $("vPlaca").classList.remove("err");
   const d = soDig(f.cliente.doc);
   if(d && !(d.length===11?cpfValido(d):d.length===14?cnpjValido(d):false)){ falta.push("CPF/CNPJ válido"); $("cCpf").classList.add("err"); }
@@ -285,6 +287,7 @@ $("bSalvar").addEventListener("click", async ()=>{
   catch(err){ $("bSalvar").disabled=false; $("formErr").textContent = msgErro(err, "Não foi possível salvar agora. Tente de novo em instantes."); }
 });
 $("bLimpar").addEventListener("click", limpar);
+document.addEventListener("click", e=>{ if(e.target.closest("#bSalvar2")) $("bSalvar").click(); });
 $("bExemplo").addEventListener("click", ()=>{
   preencher({cliente:{nome:"Cliente Exemplo da Silva", doc:"529.982.247-25", endereco:"Rua das Palmeiras, 120 – Centro", telefone:"(11) 98765-4321", cidade:"São Paulo", uf:"SP"},
     veiculo:{modelo:"BMW 430i", ano:"2025/2025", placa:"QFD5E22", renavam:"", chassi:"", origem:"Concessionária", dataCompra:"2026-04-09", nfEntrada:"CONC."},
@@ -320,7 +323,7 @@ function renderResultado(u, aviso){
     '<div class="minimo"><div class="row"><div class="f"><label for="mDesejado">Quanto quer ganhar líquido?</label><div class="money"><input id="mDesejado" class="num" inputmode="decimal" placeholder="0,00"></div></div>'+
     '<div><div class="hint">Vender por no mínimo</div><output id="mOut" class="num">—</output></div></div>'+
     '<p class="note" style="margin:6px 0 0">Considera compra'+(r.custos?", custos":"")+' e todos os impostos.</p></div>'+
-    '<div class="actions"><button type="button" class="btn" id="bPdfVenda">Gerar PDF desta venda</button></div>';
+    '<div class="actions"><button type="button" class="btn good so-cel-b" id="bSalvar2">Salvar venda</button><button type="button" class="btn" id="bPdfVenda">Gerar PDF desta venda</button></div>';
   $("bPdfVenda").addEventListener("click", ()=>{
     const f = lerForm();
     const v = {...u.form, cliente:f.cliente, veiculo:f.veiculo, valores:{...u.form.valores, nfSaida:f.valores.nfSaida, vendedor:f.valores.vendedor, dataVenda:f.valores.dataVenda}};

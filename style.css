@@ -347,3 +347,14 @@ header.top{padding-top:env(safe-area-inset-top)}
   .meta-ring{width:112px;height:112px}
   .meta-pct b{font-size:1.7rem}
 }
+
+/* Celular: Nova venda simplificada (só placa + valores; resultado aparece depois de calcular) */
+.so-cel{display:none}
+.so-cel-b{display:none}
+@media (max-width:720px){
+  .so-pc{display:none !important}
+  .so-cel{display:inline}
+  .so-cel-b{display:inline-flex;justify-content:center;flex:1}
+  #v-nova .result:not(.on){display:none}
+  #vPlaca{font-size:1.4rem;padding:14px 12px}
+}
