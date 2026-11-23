@@ -498,6 +498,60 @@ $("bPdfTri").addEventListener("click", async ()=>{
   entregarPDF(doc, "Relatorio-"+nomeArq(empresa)+"-"+mes+".pdf");
 });
 
+/* ---------- comparação por ano ---------- */
+function dadosAnuais(){
+  const anos = {};
+  vendas.filter(v=>v.empresa===empresa && v.valores && v.valores.dataVenda).forEach(v=>{
+    const y = Number(v.valores.dataVenda.slice(0,4)), m = Number(v.valores.dataVenda.slice(5,7))-1, r = calcVenda(v);
+    const novo = () => ({n:0, venda:0, compra:0, lucro:0, total:0, liquido:0});
+    const A = anos[y] || (anos[y] = {ano:y, ...novo(), meses:Array.from({length:12}, novo)});
+    for(const X of [A, A.meses[m]]){ X.n++; X.venda+=Number(v.valores.venda)||0; X.compra+=Number(v.valores.compra)||0; X.lucro+=r.lucro||0; X.total+=r.total||0; X.liquido+=r.liquido||0; }
+  });
+  return Object.values(anos).sort((a,b)=>a.ano-b.ano);
+}
+const varPct = (a,b) => b ? (a-b)/Math.abs(b) : null;
+// soma de um indicador do ano até o mês lim (0-11): usado para comparar o ano atual com o mesmo período do ano anterior
+const somaAte = (a, k, lim) => a.meses.slice(0, lim+1).reduce((t,m)=>t+m[k], 0);
+const MES_CURTO = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+function badgeVar(v){ if(v==null) return '<span class="dl neu">—</span>'; if(Math.abs(v)<0.005) return '<span class="dl neu">igual</span>';
+  return '<span class="dl '+(v>0?"up":"down")+'">'+(v>0?"▲ ":"▼ ")+Math.abs(v*100).toLocaleString("pt-BR",{maximumFractionDigits:0})+'%</span>'; }
+const fmtMil = v => { const a=Math.abs(v); return (v<0?"-":"")+(a>=1e6 ? "R$ "+(a/1e6).toLocaleString("pt-BR",{maximumFractionDigits:2})+" mi" : a>=1e3 ? "R$ "+(a/1e3).toLocaleString("pt-BR",{maximumFractionDigits:0})+" mil" : fmtBRL(a)); };
+function renderAnual(){
+  const tb = $("tbAnual"); if(!tb) return;
+  const D = dadosAnuais(), anoAtual = new Date().getFullYear(), mesAtual = new Date().getMonth();
+  // comparação justa: ano atual (incompleto) contra o mesmo período do ano anterior
+  const comp = (a, p, k) => !p ? null : a.ano===anoAtual ? varPct(a[k], somaAte(p, k, mesAtual)) : varPct(a[k], p[k]);
+  if(!D.length){ $("anualBarras").innerHTML = ""; tb.innerHTML = '<tbody><tr><td class="l vazio-mes" style="padding:20px;color:var(--muted);white-space:normal">Ainda não há vendas para comparar.</td></tr></tbody>'; $("tbAnualMes").innerHTML=""; return; }
+  const max = Math.max(...D.map(a=>a.venda), 1);
+  $("anualBarras").innerHTML = '<div class="ab-leg"><span><i class="fat"></i>Faturamento</span><span><i class="liq"></i>Lucro líquido</span></div><div class="ab-cols">'+
+    D.map(a=>'<div class="ab-col"><span class="ab-val">'+fmtMil(a.venda)+'</span><div class="ab-bar" style="height:'+Math.max(4, a.venda/max*170).toFixed(0)+'px"><i style="height:'+(a.venda? Math.max(0,Math.min(100,a.liquido/a.venda*100)) : 0).toFixed(1)+'%"></i></div><span class="ab-liq">'+fmtMil(a.liquido)+'</span><b>'+a.ano+(a.ano===anoAtual?'<small>até hoje</small>':'')+'</b></div>').join("")+'</div>';
+  tb.innerHTML = '<thead><tr><th class="l">Ano</th><th>Carros</th><th>Faturamento</th><th>Lucro bruto</th><th>Impostos</th><th>Lucro líquido</th><th>Margem líquida</th><th>Lucro médio por carro</th><th>Faturamento vs ano anterior</th><th>Líquido vs ano anterior</th></tr></thead><tbody>'+
+    D.slice().reverse().map(a=>{ const p = D.find(x=>x.ano===a.ano-1);
+      return '<tr><td class="l c-veic"><b>'+a.ano+'</b>'+(a.ano===anoAtual?' <span class="sub" style="display:inline">até hoje</span>':'')+'</td>'+
+        '<td data-label="Carros">'+a.n+'</td><td data-label="Faturamento">'+fmtBRL(a.venda)+'</td><td data-label="Lucro bruto">'+fmtBRL(a.lucro)+'</td>'+
+        '<td data-label="Impostos">'+fmtBRL(a.total)+'</td><td data-label="Lucro líquido" class="c-liq"><b>'+fmtBRL(a.liquido)+'</b></td>'+
+        '<td data-label="Margem líquida">'+(a.venda?(a.liquido/a.venda*100).toLocaleString("pt-BR",{maximumFractionDigits:1})+"%":"—")+'</td>'+
+        '<td data-label="Lucro médio por carro">'+fmtBRL(a.n?a.liquido/a.n:0)+'</td>'+
+        '<td data-label="Faturamento vs ano anterior">'+badgeVar(comp(a,p,"venda"))+'</td><td data-label="Líquido vs ano anterior">'+badgeVar(comp(a,p,"liquido"))+'</td></tr>'; }).join("")+'</tbody>';
+  const met = $("selAnualMetrica").value, fm = v => met==="n" ? String(v) : fmtBRL(v);
+  const ult = D.slice(-4);   // até 4 anos lado a lado
+  const U = ult[ult.length-1], parcial = U.ano===anoAtual;
+  const rotVar = ult.length>1 ? U.ano+' vs '+ult[ult.length-2].ano : '';
+  $("tbAnualMes").innerHTML = '<thead><tr><th class="l">Mês</th>'+ult.map(a=>'<th>'+a.ano+'</th>').join("")+(ult.length>1?'<th>'+rotVar+'</th>':'')+'</tr></thead><tbody>'+
+    MESES.map((nm,i)=>{ const vals = ult.map(a=>a.meses[i][met]);
+      return '<tr><td class="l c-veic">'+nm+'</td>'+vals.map((v,j)=>'<td data-label="'+ult[j].ano+'">'+(ult[j].meses[i].n||v ? fm(v) : '<span class="sub" style="display:inline">—</span>')+'</td>').join("")+
+        (ult.length>1?'<td data-label="Variação">'+badgeVar(parcial && i>mesAtual ? null : varPct(vals[vals.length-1], vals[vals.length-2]))+'</td>':'')+'</tr>'; }).join("")+
+    '</tbody><tfoot><tr><td class="l">Total</td>'+ult.map(a=>'<td data-label="'+a.ano+'">'+fm(a[met])+'</td>').join("")+(ult.length>1?'<td data-label="Variação">'+badgeVar(varPct(U[met], parcial ? somaAte(ult[ult.length-2], met, mesAtual) : ult[ult.length-2][met]))+(parcial?'<span class="sub">jan–'+MES_CURTO[mesAtual]+'</span>':'')+'</td>':'')+'</tr></tfoot>';
+}
+$("selAnualMetrica").addEventListener("change", renderAnual);
+$("bPdfAnual").addEventListener("click", async ()=>{
+  const J = jsPDFpronto(); if(!J) return;
+  const D = dadosAnuais(); if(!D.length){ toast("Ainda não há vendas para comparar."); return; }
+  const logo = await carregarLogo();
+  const doc = RevendaPDF.relatorioAnual(J, {empresa, anos:D, anoAtual:new Date().getFullYear(), mesAtual:new Date().getMonth(), logo});
+  entregarPDF(doc, "Comparativo-anual-"+nomeArq(empresa)+"-"+hoje()+".pdf");
+});
+
 /* ---------- CSV ---------- */
 function mascararDoc(d){ const n = soDig(d); if(n.length===11) return "***."+n.slice(3,6)+"."+n.slice(6,9)+"-**"; return d||""; }   // CNPJ não é dado pessoal
 $("bCsv").addEventListener("click", async ()=>{
@@ -621,7 +675,7 @@ function renderMeta(){
 
 /* ---------- render geral ---------- */
 function renderTudo(){
-  renderEmpresas(); renderVendas(); renderMeta(); renderBackup();
+  renderEmpresas(); renderVendas(); renderMeta(); renderBackup(); renderAnual();
   if(!document.activeElement || !document.activeElement.id || !document.activeElement.id.startsWith("cfg_")) renderCfg();
   setStatus();
 }

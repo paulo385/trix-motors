@@ -382,5 +382,87 @@
     return doc;
   }
 
-  root.RevendaPDF = { relatorioTrimestre, relatorioMes, resumoVenda };
+  /* ---------------- Comparativo anual ----------------
+     dados = { empresa, anoAtual, anos:[{ano, n, venda, compra, lucro, total, liquido, meses:[12 x {n, venda, lucro, total, liquido}]}] } */
+  function relatorioAnual(jsPDF, dados) {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();
+    const emp = dados.empresa, A = dados.anos.slice().sort((a, b) => a.ano - b.ano);
+    const de = A[0].ano, ate = A[A.length - 1].ano;
+    let y = cabecalho(doc, "Comparativo anual · " + emp, de === ate ? "Ano de " + de : "De " + de + " a " + ate, "Gerado em " + agora(), logoDe(dados, emp));
+    const vp = (a, b) => b ? (a - b) / Math.abs(b) : null;
+    const lim = dados.mesAtual == null ? 11 : dados.mesAtual, CUR = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    const atePer = (a, k) => a.meses.slice(0, lim + 1).reduce((t, m) => t + m[k], 0);
+    const comp = (a, p, k) => !p ? null : a.ano === dados.anoAtual ? vp(a[k], atePer(p, k)) : vp(a[k], p[k]);   // ano atual x mesmo período do anterior
+    const varTxt = v => v == null ? "-" : (v > 0 ? "+" : "") + pct(v, 0);
+    const U = A[A.length - 1], P = A.length > 1 ? A[A.length - 2] : null;
+    const atual = U.ano === dados.anoAtual ? " (até hoje)" : "";
+    y = blocosResumo(doc, y, [
+      ["Faturamento " + U.ano + atual, brl(U.venda)],
+      ["Lucro líquido " + U.ano, brl(U.liquido), U.liquido < 0 ? VERMELHO : TINTA],
+      ["Carros vendidos " + U.ano, String(U.n)],
+      [P ? "Faturamento vs " + P.ano + (atual ? " (jan–" + CUR[lim] + ")" : "") : "Margem líquida", P ? varTxt(comp(U, P, "venda")) : (U.venda ? pct(U.liquido / U.venda) : "-"), MARCA_TXT],
+      [P ? "Líquido vs " + P.ano + (atual ? " (jan–" + CUR[lim] + ")" : "") : "Lucro médio por carro", P ? varTxt(comp(U, P, "liquido")) : brl(U.n ? U.liquido / U.n : 0), MARCA_TXT],
+    ]);
+
+    // gráfico de barras: faturamento (cinza) com o líquido (laranja) dentro
+    y = titulo2(doc, y, "Faturamento e lucro líquido por ano");
+    const gH = 52, gTop = y + 6, base = gTop + gH, maxV = Math.max(...A.map(a => a.venda), 1);
+    const slot = Math.min(34, (W - 28) / A.length), bw = Math.min(18, slot * 0.6);
+    const x0 = 14 + ((W - 28) - slot * A.length) / 2;
+    doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(14, base, W - 14, base);
+    A.forEach((a, i) => {
+      const cx = x0 + slot * i + slot / 2, h = Math.max(1, a.venda / maxV * gH), hl = a.venda ? Math.max(0, Math.min(h, a.liquido / a.venda * h)) : 0;
+      doc.setFillColor(200, 204, 211); doc.rect(cx - bw / 2, base - h, bw, h, "F");
+      if (hl > 0) { doc.setFillColor(...MARCA); doc.rect(cx - bw / 2, base - hl, bw, hl, "F"); }
+      doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...TINTA);
+      doc.text(brl(a.venda).replace(/,\d\d$/, ""), cx, base - h - 2, { align: "center" });
+      doc.setFontSize(9); doc.text(String(a.ano), cx, base + 5, { align: "center" });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(...MARCA_TXT);
+      doc.text("líq. " + brl(a.liquido).replace(/,\d\d$/, ""), cx, base + 9, { align: "center" });
+    });
+    doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+    doc.setFillColor(200, 204, 211); doc.rect(W - 80, gTop - 4, 3, 3, "F"); doc.text("Faturamento", W - 75.5, gTop - 1.6);
+    doc.setFillColor(...MARCA); doc.rect(W - 48, gTop - 4, 3, 3, "F"); doc.text("Lucro líquido", W - 43.5, gTop - 1.6);
+    y = base + 16;
+
+    y = precisaPagina(doc, y, 40);
+    y = titulo2(doc, y, "Resumo por ano");
+    y = tabela(doc, Object.assign({}, baseTabela, {
+      startY: y + 1,
+      head: [["Ano", "Carros", "Faturamento", "Compras", "Lucro bruto", "Impostos", "Lucro líquido", "Margem líquida", "Lucro médio/carro", "Fat. vs ano ant.", "Líq. vs ano ant."]],
+      body: A.map((a, i) => { const p = i ? A[i - 1] : null; return [
+        a.ano + (a.ano === dados.anoAtual ? " (até hoje)" : ""), String(a.n), num(a.venda), num(a.compra), num(a.lucro), num(a.total), num(a.liquido),
+        a.venda ? pct(a.liquido / a.venda) : "-", num(a.n ? a.liquido / a.n : 0), p ? varTxt(comp(a, p, "venda")) : "-", p ? varTxt(comp(a, p, "liquido")) : "-"]; }),
+      headStyles: Object.assign({}, baseTabela.headStyles, { halign: "right" }),
+      columnStyles: (() => { const c = {}; for (let i = 1; i <= 10; i++) c[i] = { halign: "right" }; return c; })(),
+      didParseCell: h => { if (h.column.index === 0) h.cell.styles.halign = "left"; },
+    })) + 8;
+
+    // mês a mês: faturamento e líquido dos últimos anos (até 4)
+    const ult = A.slice(-4);
+    [["Lucro líquido mês a mês", "liquido", num], ["Faturamento mês a mês", "venda", num], ["Carros vendidos mês a mês", "n", v => String(v)]].forEach(([tit, k, f]) => {
+      y = precisaPagina(doc, y, 95);
+      y = titulo2(doc, y, tit);
+      const temVar = ult.length > 1, UL = ult[ult.length - 1], parcial = UL.ano === dados.anoAtual;
+      y = tabela(doc, Object.assign({}, baseTabela, {
+        startY: y + 1,
+        head: [["Mês"].concat(ult.map(a => String(a.ano)), temVar ? [ult[ult.length - 1].ano + " vs " + ult[ult.length - 2].ano] : [])],
+        body: MESES.map((nm, i) => { const vals = ult.map(a => a.meses[i][k]);
+          return [nm].concat(ult.map(a => a.meses[i].n ? f(a.meses[i][k]) : "-"), temVar ? [parcial && i > lim ? "-" : varTxt(vp(vals[vals.length - 1], vals[vals.length - 2]))] : []); }),
+        foot: [["Total"].concat(ult.map(a => f(a[k])), temVar ? [varTxt(parcial ? vp(UL[k], atePer(ult[ult.length - 2], k)) : vp(UL[k], ult[ult.length - 2][k])) + (parcial ? " (jan–" + CUR[lim] + ")" : "")] : [])],
+        showFoot: "lastPage",
+        styles: Object.assign({}, baseTabela.styles, { fontSize: 8, cellPadding: 1.4 }),
+        headStyles: Object.assign({}, baseTabela.headStyles, { halign: "right" }),
+        footStyles: Object.assign({}, baseTabela.footStyles, { halign: "right" }),
+        columnStyles: (() => { const c = { 0: { halign: "left", cellWidth: 34 } }; for (let i = 1; i <= ult.length + 1; i++) c[i] = { halign: "right" }; return c; })(),
+        didParseCell: h => { if (h.column.index === 0) h.cell.styles.halign = "left"; },
+      })) + 8;
+    });
+
+    rodapes(doc, "Trix Motors · Comparativo anual de vendas e impostos. Valores calculados pelo app a partir das vendas lançadas; o ano atual considera as vendas até a data de geração.");
+    return doc;
+  }
+
+  root.RevendaPDF = { relatorioTrimestre, relatorioMes, resumoVenda, relatorioAnual };
 })(typeof window !== "undefined" ? window : globalThis);

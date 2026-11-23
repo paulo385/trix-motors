@@ -384,3 +384,21 @@ header.top{padding-top:env(safe-area-inset-top)}
 .backup-ultimo.atrasado{background:var(--accent-soft);color:var(--accent-text)}
 #cardBackup label.btn{cursor:pointer;display:inline-flex;align-items:center;font-size:1rem;color:var(--ink)}
 .aviso-backup{border-left:0;background:var(--bg);padding:8px 12px;border-radius:8px}
+
+/* Comparação por ano */
+.card.anual{margin-top:20px}
+.anual-top{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.anual-barras{margin:6px 0 16px}
+.ab-leg{display:flex;gap:16px;font-size:.85rem;color:var(--muted);margin-bottom:8px}
+.ab-leg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.ab-leg i.fat{background:color-mix(in srgb,var(--muted) 45%,var(--line))}.ab-leg i.liq{background:var(--accent)}
+.ab-cols{display:flex;gap:18px;align-items:flex-end;overflow-x:auto;padding:4px 2px 2px;border-bottom:1px solid var(--line)}
+.ab-col{flex:0 0 92px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.ab-val{font-size:.8rem;font-weight:700;white-space:nowrap}
+.ab-bar{width:56px;border-radius:6px 6px 2px 2px;background:color-mix(in srgb,var(--muted) 45%,var(--line));display:flex;align-items:flex-end;overflow:hidden}
+.ab-bar i{display:block;width:100%;background:var(--accent);border-radius:4px 4px 0 0}
+.ab-liq{font-size:.78rem;color:var(--accent-text);font-weight:700;white-space:nowrap}
+.ab-col b{font-family:var(--font-display);font-size:1.05rem;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.ab-col b small{font-family:var(--font-body);font-weight:400;font-size:.7rem;color:var(--muted)}
+#tbAnual td .dl,#tbAnualMes td .dl{display:inline-block;min-width:58px}
+@media (max-width:720px){ .ab-col{flex-basis:76px} .ab-bar{width:44px} #bPdfAnual{width:100%} }
