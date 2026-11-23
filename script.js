@@ -65,6 +65,7 @@ let pedidos = [], membros = [];
 let empresa = null;
 let editId = null;
 let ultimo = null; // último cálculo válido do formulário
+let ultimoBackup = null, backupLembrarDepois = false; // {em, por} do último backup baixado (config "backup")
 
 const LS = "revenda-impostos-v1";
 function lsLer(){ try{ return JSON.parse(localStorage.getItem(LS)) || {}; }catch(e){ return {}; } }
@@ -116,6 +117,7 @@ async function carregarBanco(){
   vendas = vs.map(r=>({...r.doc, id:r.id}));
   const f = {}; fs.forEach(r=>{ f[r.id] = r.doc; }); fechamentos = f;
   const c = cs.find(r=>r.id==="aliquotas"); cfg = {...PADRAO, ...(c ? c.doc : {})};
+  const bk = cs.find(r=>r.id==="backup"); ultimoBackup = bk ? bk.doc : null;
   if(modo==="offline"){ modo="banco"; }
   renderTudo();
 }
@@ -619,7 +621,7 @@ function renderMeta(){
 
 /* ---------- render geral ---------- */
 function renderTudo(){
-  renderEmpresas(); renderVendas(); renderMeta();
+  renderEmpresas(); renderVendas(); renderMeta(); renderBackup();
   if(!document.activeElement || !document.activeElement.id || !document.activeElement.id.startsWith("cfg_")) renderCfg();
   setStatus();
 }
@@ -679,7 +681,7 @@ function msgLogin(error){
 }
 function pararBanco(){
   if(canal && sb){ try{ sb.removeChannel(canal); }catch(e){} }
-  canal = null; usuario = null; ehAdmin = false; pendVistos = null; avisoFechadoEm = -1; if($("avisoAdm")) $("avisoAdm").hidden = true;
+  canal = null; usuario = null; ehAdmin = false; ultimoBackup = null; backupLembrarDepois = false; pendVistos = null; avisoFechadoEm = -1; if($("avisoAdm")) $("avisoAdm").hidden = true;
   vendas = []; fechamentos = {}; cfg = {...PADRAO}; pedidos = []; membros = [];
   $("bSair").hidden = true; $("migrar").hidden = true; $("navUsuarios").hidden = true;
   if(location.hash==="#usuarios") location.hash = "#nova";
@@ -808,6 +810,67 @@ async function baixarArquivo(nome, texto, tipo){
     setTimeout(()=>URL.revokeObjectURL(url), 2000); toast("Arquivo baixado: "+nome);
   }catch(e){ toast("Não foi possível baixar o arquivo neste navegador"); }
 }
+
+/* ---------- backup completo (só administrador, no computador) ---------- */
+function diasDesde(iso){ return iso ? Math.floor((Date.now() - new Date(iso).getTime())/86400000) : Infinity; }
+function renderBackup(){
+  const el = $("backupUltimo"); if(!el) return;
+  const d = ultimoBackup && ultimoBackup.em ? new Date(ultimoBackup.em) : null;
+  const dias = diasDesde(ultimoBackup && ultimoBackup.em);
+  el.innerHTML = d ? 'Último backup: <b>'+d.toLocaleDateString("pt-BR")+' às '+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+'</b>'+(ultimoBackup.por?' por '+esc(ultimoBackup.por):'')+' · há '+(dias===0?'menos de 1 dia':dias+' dia'+(dias>1?'s':'')) : '<b>Nenhum backup feito ainda.</b>';
+  el.classList.toggle("atrasado", dias>7);
+  const box = $("avisoBackup");
+  const mostrar = ehAdmin && (modo==="banco") && !backupLembrarDepois && vendas.length>0 && dias>7;
+  box.hidden = !mostrar;
+  if(mostrar) $("avisoBackupTxt").innerHTML = d ? '<b>Seu último backup foi há '+dias+' dias.</b> Faça uma cópia dos dados para não correr risco de perder vendas.' : '<b>Você ainda não fez nenhum backup.</b> Faça uma cópia dos dados para não correr risco de perder vendas.';
+}
+async function fazerBackup(){
+  if(!ehAdmin || !sb){ toast("Só o administrador pode fazer backup."); return; }
+  const b = $("bBackup"); b.disabled = true; b.textContent = "Preparando…";
+  try{
+    const [vs, fs, cs, ms] = await Promise.all([sbTudo("vendas"), sbTudo("fechamentos"), sbTudo("config"),
+      sb.from("membros").select("email,nome,admin,criado_em").order("email")]);
+    if(ms.error) throw erroBanco(ms.error);
+    const agora = new Date().toISOString();
+    const pacote = {app:"trix-motors", tipo:"backup-completo", versao:1, gerado_em:agora, gerado_por:usuario,
+      contagem:{vendas:vs.length, fechamentos:fs.length, membros:(ms.data||[]).length},
+      vendas: vs.map(r=>({...r.doc, id:r.id})),
+      fechamentos: Object.fromEntries(fs.map(r=>[r.id, r.doc])),
+      config: {aliquotas: {...cfg}, ...Object.fromEntries(cs.filter(r=>r.id!=="backup").map(r=>[r.id, r.doc]))},
+      membros: ms.data||[]};
+    await baixarArquivo("backup-trix-motors-"+agora.slice(0,10)+".json", JSON.stringify(pacote, null, 2), "application/json");
+    ultimoBackup = {em:agora, por:usuario};
+    try{ await sbUpsert("config", {id:"backup", doc:ultimoBackup, atualizado_em:agora}); }catch(e){}
+    backupLembrarDepois = false; renderBackup();
+  }catch(err){ toast(msgErro(err, "Não foi possível gerar o backup. Tente de novo.")); }
+  finally{ b.disabled = false; b.textContent = "BAIXAR BACKUP COMPLETO"; }
+}
+async function restaurarBackup(arquivo){
+  if(!ehAdmin || !sb){ toast("Só o administrador pode restaurar."); return; }
+  let P;
+  try{ P = JSON.parse(await arquivo.text()); }catch(e){ toast("Esse arquivo não é um backup válido."); return; }
+  if(!P || P.app!=="trix-motors" || !Array.isArray(P.vendas)){ toast("Esse arquivo não é um backup do app Trix Motors."); return; }
+  const ids = new Set(vendas.map(v=>v.id));
+  const vs = P.vendas.filter(v=>v && v.id && v.empresa);
+  const novas = vs.filter(v=>!ids.has(v.id)).length;
+  const fs = Object.entries(P.fechamentos||{});
+  const temCfg = !!(P.config && P.config.aliquotas);
+  const quando = P.gerado_em ? new Date(P.gerado_em).toLocaleString("pt-BR") : "data desconhecida";
+  const ok = await confirmar("Backup de "+quando+". Vai trazer "+vs.length+" venda(s): "+novas+" que não estão no app e "+(vs.length-novas)+" que serão substituídas pela versão do arquivo. "+
+    fs.length+" fechamento(s)"+(temCfg?", alíquotas e metas":"")+". Nada será apagado.", "Restaurar backup?", "Restaurar");
+  if(!ok) return;
+  try{
+    for(let i=0; i<vs.length; i+=300) await sbUpsert("vendas", vs.slice(i,i+300).map(linhaVenda));
+    if(fs.length) await sbUpsert("fechamentos", fs.map(([id,doc])=>({id, doc, atualizado_em:new Date().toISOString()})));
+    if(temCfg) await sbUpsert("config", {id:"aliquotas", doc:P.config.aliquotas, atualizado_em:new Date().toISOString()});
+    await carregarBanco();
+    toast("Backup restaurado: "+vs.length+" venda(s)");
+  }catch(err){ toast(msgErro(err, "A restauração parou no meio. Confira as vendas e tente de novo: nada foi apagado.")); agendarRecarga(); }
+}
+$("bBackup").addEventListener("click", fazerBackup);
+$("avisoBackupBaixar").addEventListener("click", fazerBackup);
+$("avisoBackupFechar").addEventListener("click", ()=>{ backupLembrarDepois = true; renderBackup(); });
+$("fRestaurar").addEventListener("change", e=>{ const f = e.target.files && e.target.files[0]; e.target.value = ""; if(f) restaurarBackup(f); });
 
 /* ---------- pedidos de clientes sobre dados (LGPD, arts. 18 e 19) ---------- */
 function vendasDoTitular(doc){ const d = soDig(doc); return d ? vendas.filter(v=>soDig(v.cliente && v.cliente.doc)===d) : []; }

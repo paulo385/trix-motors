@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16181c">
 <meta name="description" content="Cadastro de venda de veículos com cálculo de IRPJ, CSLL, PIS, COFINS e ICMS">
-<link rel="manifest" href="manifest.json?v=23">
+<link rel="manifest" href="manifest.json?v=25">
 <link rel="icon" href="icons/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -32,7 +32,7 @@
   .splash img,.splash-barra::after{animation:none}
 }
 </style>
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/logo-trix.png" alt="" width="260" height="218" style="width:min(56vw,260px);height:auto"><div class="splash-barra"></div></div>
@@ -61,6 +61,12 @@
   </nav>
 </header>
 
+<div class="aviso-adm so-pc" id="avisoBackup" role="status" hidden>
+  <span class="sino" aria-hidden="true">💾</span>
+  <span class="txt" id="avisoBackupTxt"></span>
+  <button type="button" class="btn sm" id="avisoBackupBaixar">Baixar backup agora</button>
+  <button type="button" class="fechar" id="avisoBackupFechar" aria-label="Lembrar depois">×</button>
+</div>
 <div class="aviso-adm" id="avisoAdm" role="status" hidden>
   <span class="sino" aria-hidden="true">🔔</span>
   <span class="txt" id="avisoAdmTxt"></span>
@@ -185,6 +191,15 @@
     <h2>Quem tem acesso</h2>
     <div id="listaMembros"></div>
   </div>
+  <div class="card so-pc" id="cardBackup">
+    <h2>Backup dos dados</h2>
+    <p class="note" style="margin-top:0">Baixa um arquivo com <b>tudo</b>: vendas (com os dados completos do cliente e do veículo), fechamentos, alíquotas, metas, vendedores, empresas e a lista de quem tem acesso. Os relatórios em PDF podem ser gerados de novo a partir dele.</p>
+    <p class="backup-ultimo" id="backupUltimo"></p>
+    <div class="actions"><button type="button" class="btn primary" id="bBackup">BAIXAR BACKUP COMPLETO</button>
+      <label class="btn" for="fRestaurar">Restaurar de um backup…</label><input type="file" id="fRestaurar" accept=".json,application/json" hidden></div>
+    <p class="note aviso-backup"><b>Guarde o arquivo com cuidado:</b> ele tem CPF, endereço e telefone dos clientes. Deixe numa pasta do computador da loja e numa cópia no Google Drive da empresa. Não mande por WhatsApp nem por e-mail. Faça um backup por semana.</p>
+    <p class="note">Restaurar <b>não apaga nada</b>: traz de volta as vendas, fechamentos, alíquotas e metas do arquivo. Se uma venda existir nos dois, fica a versão do arquivo. A lista de acessos não é restaurada (cada pessoa cria a conta e você aprova).</p>
+  </div>
   <div class="card" id="cardTitular">
     <h2>Pedidos de clientes sobre dados (LGPD)</h2>
     <p class="note" style="margin-top:0">Quando um cliente pedir pelo canal de privacidade: busque pelo CPF ou CNPJ. Prazo de resposta: até 15 dias (simplificada) ou 30 dias (completa).</p>
@@ -234,11 +249,11 @@
   <button type="button" class="btn sm" id="iosTipFechar">Entendi</button>
 </div>
 
-<script src="config.js?v=23"></script>
-<script src="lib/supabase.js?v=23"></script>
-<script src="lib/jspdf.umd.min.js?v=23"></script>
-<script src="lib/jspdf.plugin.autotable.min.js?v=23"></script>
-<script src="pdf.js?v=23"></script>
-<script src="script.js?v=23"></script>
+<script src="config.js?v=25"></script>
+<script src="lib/supabase.js?v=25"></script>
+<script src="lib/jspdf.umd.min.js?v=25"></script>
+<script src="lib/jspdf.plugin.autotable.min.js?v=25"></script>
+<script src="pdf.js?v=25"></script>
+<script src="script.js?v=25"></script>
 </body>
 </html>

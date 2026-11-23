@@ -378,3 +378,9 @@ header.top{padding-top:env(safe-area-inset-top)}
 .mv-linha .qtd{position:relative}
 .mv-linha .qtd input{width:100%;padding-right:62px;text-align:right}
 .mv-linha .qtd span{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;pointer-events:none}
+
+/* Backup */
+.backup-ultimo{margin:4px 0 10px;padding:8px 12px;border-radius:8px;background:var(--bg);font-size:.95rem}
+.backup-ultimo.atrasado{background:var(--accent-soft);color:var(--accent-text)}
+#cardBackup label.btn{cursor:pointer;display:inline-flex;align-items:center;font-size:1rem;color:var(--ink)}
+.aviso-backup{border-left:0;background:var(--bg);padding:8px 12px;border-radius:8px}
